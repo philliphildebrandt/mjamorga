@@ -1,0 +1,948 @@
+/* === MjamOrga – Modernes, mobile-first Design === */
+
+:root {
+    --primary: #f8b400;
+    --primary-dark: #d99e00;
+    --primary-light: #fff3d6;
+    --bg: #faf8f5;
+    --bg-card: #ffffff;
+    --text: #2d2a24;
+    --text-secondary: #6b675e;
+    --text-light: #9a958a;
+    --border: #e8e4dc;
+    --danger: #e74c3c;
+    --success: #27ae60;
+    --shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.1);
+    --radius: 14px;
+    --radius-sm: 8px;
+    --nav-height: 64px;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    font-size: 16px;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+#app {
+    max-width: 720px;
+    margin: 0 auto;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+/* === Navigation === */
+
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 720px;
+    background: var(--bg-card);
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    height: var(--nav-height);
+    padding: 0 8px;
+    padding-bottom: env(safe-area-inset-bottom);
+    z-index: 100;
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+    flex: 1;
+    padding: 6px 4px;
+    border-radius: var(--radius-sm);
+    transition: all 0.2s ease;
+    cursor: pointer;
+    user-select: none;
+}
+
+.nav-item .nav-icon {
+    font-size: 1.5rem;
+    margin-bottom: 2px;
+}
+
+.nav-item.active {
+    color: var(--primary-dark);
+    background: var(--primary-light);
+}
+
+.nav-item:active {
+    transform: scale(0.95);
+}
+
+/* === Seiten === */
+
+.page-container {
+    flex: 1;
+    padding-bottom: calc(var(--nav-height) + 20px);
+}
+
+.page {
+    display: none;
+    animation: fadeIn 0.25s ease;
+}
+
+.page.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.page-header {
+    padding: 16px 20px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 10;
+}
+
+.page-header h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+
+.page-header .subtitle {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    width: 100%;
+}
+
+.detail-header {
+    justify-content: flex-start;
+    gap: 12px;
+    flex-wrap: nowrap;
+}
+
+.detail-header h2 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    flex: 1;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.header-platzhalter {
+    display: inline-block;
+    width: 42px;
+    flex-shrink: 0;
+}
+
+.content-area {
+    padding: 12px 20px;
+}
+
+/* === Buttons === */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 18px;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    font-weight: 600;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.btn:active { transform: scale(0.97); }
+
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-dark); }
+
+.btn-secondary {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+}
+.btn-secondary:hover { background: var(--border); }
+
+.btn-danger { background: var(--danger); color: #fff; }
+
+.btn-back {
+    background: transparent;
+    color: var(--text);
+    font-size: 1.4rem;
+    padding: 6px 10px;
+}
+
+.btn-edit {
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+    padding: 6px 10px;
+}
+
+.btn-close {
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+    padding: 4px 8px;
+}
+
+.btn-block { width: 100%; }
+
+.btn-icon {
+    background: none;
+    border: none;
+    color: var(--text-light);
+    font-size: 0.95rem;
+    cursor: pointer;
+    padding: 8px;
+    line-height: 1;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+}
+
+.btn-icon:hover {
+    background: var(--bg);
+    color: var(--danger);
+}
+
+/* === Leere Zustände === */
+
+.leer-hinweis {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--text-light);
+    grid-column: 1 / -1;
+}
+
+.leer-hinweis .leer-icon {
+    font-size: 3rem;
+    margin-bottom: 12px;
+}
+
+.leer-hinweis .klein { font-size: 0.85rem; }
+
+.leer-text {
+    color: var(--text-light);
+    font-style: italic;
+}
+
+/* === Rezeptliste === */
+
+.rezept-liste {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+}
+
+.rezept-karte {
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    user-select: none;
+}
+
+.rezept-karte:active {
+    transform: scale(0.98);
+    box-shadow: var(--shadow-lg);
+}
+
+.rezept-karte-bild {
+    width: 100%;
+    height: 160px;
+    object-fit: cover;
+    background: var(--bg);
+    display: block;
+}
+
+.rezept-karte-bild.placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    background: var(--primary-light);
+}
+
+.rezept-karte-body {
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.rezept-karte-titel {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.rezept-karte-sterne {
+    font-size: 0.9rem;
+    letter-spacing: 2px;
+}
+
+.rezept-karte-sterne .leer,
+.rezept-detail-sterne .leer,
+.mahlzeit-sterne .leer,
+.mini-sterne .leer {
+    opacity: 0.25;
+}
+
+/* === Rezept-Detail === */
+
+.rezept-detail-bild {
+    width: 100%;
+    max-height: 280px;
+    object-fit: cover;
+    border-radius: var(--radius);
+    margin-bottom: 16px;
+    background: var(--bg);
+    display: block;
+}
+
+.rezept-detail-bild.placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 5rem;
+    height: 200px;
+    background: var(--primary-light);
+}
+
+.rezept-detail-titel {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.rezept-detail-sterne {
+    font-size: 1.2rem;
+    letter-spacing: 3px;
+    margin-bottom: 12px;
+}
+
+.rezept-detail-link {
+    display: inline-block;
+    color: var(--primary-dark);
+    text-decoration: none;
+    font-weight: 600;
+    margin-bottom: 16px;
+    word-break: break-all;
+}
+
+.rezept-detail-block {
+    margin-bottom: 16px;
+}
+
+.block-titel {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.zutaten-liste {
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    padding: 12px 16px 12px 34px;
+    box-shadow: var(--shadow);
+    font-size: 0.95rem;
+}
+
+.zutaten-liste li {
+    padding: 3px 0;
+}
+
+.rezept-detail-text {
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    padding: 16px;
+    white-space: pre-wrap;
+    box-shadow: var(--shadow);
+    font-size: 0.95rem;
+}
+
+/* === Formular === */
+
+.rezept-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.form-group label {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 1rem;
+    font-family: var(--font);
+    color: var(--text);
+    background: var(--bg-card);
+    transition: border-color 0.2s ease;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.form-group textarea {
+    resize: vertical;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(248, 180, 0, 0.15);
+}
+
+.form-hint {
+    color: var(--text-light);
+    font-size: 0.8rem;
+}
+
+.form-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.sterne-eingabe {
+    display: flex;
+    gap: 8px;
+    font-size: 1.8rem;
+}
+
+.stern {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: inherit;
+    opacity: 0.3;
+    transition: all 0.15s ease;
+    padding: 4px;
+    user-select: none;
+}
+
+.stern.aktiv { opacity: 1; }
+.stern:active { transform: scale(1.2); }
+
+/* === Wochenplan === */
+
+.wochenplan-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.wochen-kachel {
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.wochen-kachel-header {
+    padding: 14px 18px;
+    background: var(--primary-light);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-weight: 600;
+    user-select: none;
+    transition: background 0.2s ease;
+}
+
+.wochen-kachel-header:active { background: #ffe8b3; }
+
+.wochen-kachel-header .pfeil {
+    transition: transform 0.25s ease;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+}
+
+.wochen-kachel.geoeffnet .pfeil { transform: rotate(180deg); }
+
+.badge {
+    display: inline-block;
+    background: var(--primary-dark);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-left: 6px;
+    vertical-align: 2px;
+}
+
+.wochen-kachel-body { display: none; }
+
+.wochen-kachel.geoeffnet .wochen-kachel-body {
+    display: block;
+    padding: 4px 0;
+}
+
+.tages-zeile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--border);
+}
+
+.tages-zeile:last-child { border-bottom: none; }
+
+.tages-zeile.heute { background: #fff9e8; }
+
+.tages-zeile .tag-name {
+    font-weight: 600;
+    font-size: 0.85rem;
+    width: 84px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.tages-zeile .tag-datum {
+    font-weight: 400;
+    font-size: 0.75rem;
+    color: var(--text-light);
+}
+
+.tages-zeile .tag-essen {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    min-width: 0;
+}
+
+.tages-zeile .tag-text {
+    flex: 1;
+    min-width: 0;
+    padding: 9px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    font-family: var(--font);
+    color: var(--text);
+    background: var(--bg-card);
+}
+
+.tages-zeile .tag-text:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.tages-zeile .rezept-auswahl {
+    flex-shrink: 0;
+    width: 52px;
+    padding: 9px 6px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    font-size: 0.9rem;
+    font-family: var(--font);
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    text-align: center;
+}
+
+.tages-zeile .rezept-link {
+    flex: 1;
+    min-width: 0;
+    color: var(--primary-dark);
+    font-weight: 600;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.tages-zeile .rezept-link:hover { text-decoration: underline; }
+
+.mini-sterne {
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+}
+
+/* === Einkaufsliste === */
+
+.einkaufsliste-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.listen-info {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    padding: 0 4px 4px;
+}
+
+.kategorie-gruppe {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.kategorie-titel {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-secondary);
+    padding: 6px 4px 0;
+}
+
+.kategorie-anzahl {
+    background: var(--border);
+    color: var(--text-secondary);
+    border-radius: 20px;
+    padding: 1px 8px;
+    font-size: 0.7rem;
+    letter-spacing: 0;
+}
+
+.produkt-zeile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--bg-card);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s ease;
+}
+
+.produkt-zeile:active { transform: scale(0.99); }
+
+.produkt-zeile .checkbox {
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+    font-size: 0.9rem;
+    color: transparent;
+}
+
+.produkt-zeile.erledigt .checkbox {
+    background: var(--success);
+    border-color: var(--success);
+    color: #fff;
+}
+
+.produkt-zeile .produkt-name {
+    flex: 1;
+    font-size: 0.95rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    transition: all 0.2s ease;
+}
+
+.produkt-zeile.erledigt .produkt-name {
+    text-decoration: line-through;
+    color: var(--text-light);
+}
+
+.produkt-zeile .produkt-aktion {
+    background: none;
+    border: none;
+    color: var(--text-light);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 6px 4px;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+}
+
+.produkt-zeile .produkt-aktion:hover {
+    background: var(--bg);
+}
+
+/* === Modal === */
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 200;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    animation: fadeInOverlay 0.2s ease;
+}
+
+@keyframes fadeInOverlay {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.modal {
+    background: var(--bg-card);
+    width: 100%;
+    max-width: 720px;
+    border-radius: var(--radius) var(--radius) 0 0;
+    max-height: 85vh;
+    overflow-y: auto;
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--bg-card);
+    z-index: 5;
+}
+
+.modal-header h3 { font-size: 1.2rem; }
+
+.modal-body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.modal-body form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.modal-divider {
+    text-align: center;
+    color: var(--text-light);
+    margin: 20px 0;
+    font-size: 0.85rem;
+    position: relative;
+}
+
+.modal-divider::before,
+.modal-divider::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 40%;
+    height: 1px;
+    background: var(--border);
+}
+
+.modal-divider::before { left: 0; }
+.modal-divider::after  { right: 0; }
+
+/* === Toast === */
+
+.toast {
+    position: fixed;
+    bottom: calc(var(--nav-height) + 20px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: #fff;
+    padding: 12px 22px;
+    border-radius: 30px;
+    font-size: 0.9rem;
+    z-index: 300;
+    box-shadow: var(--shadow-lg);
+    animation: toastIn 0.3s ease;
+    max-width: 90%;
+    text-align: center;
+}
+
+@keyframes toastIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* === Dashboard === */
+
+.dashboard-datum {
+    text-align: center;
+    margin-bottom: 20px;
+    padding: 16px;
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+
+.dashboard-datum .wochentag {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--primary-dark);
+}
+
+.dashboard-datum .datum {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+}
+
+.dashboard-mahlzeiten {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.mahlzeit-karte {
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    box-shadow: var(--shadow);
+    transition: all 0.2s ease;
+}
+
+.mahlzeit-karte .mahlzeit-titel {
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+.mahlzeit-karte .mahlzeit-inhalt {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.mahlzeit-karte .mahlzeit-inhalt.leer {
+    color: var(--text-light);
+    font-weight: 400;
+    font-style: italic;
+}
+
+.mahlzeit-karte .mahlzeit-rezept-link {
+    color: var(--primary-dark);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.mahlzeit-karte .mahlzeit-rezept-link:active { transform: scale(0.99); }
+
+.mahlzeit-sterne {
+    font-size: 0.85rem;
+    letter-spacing: 2px;
+}
+
+/* === Responsive / Desktop === */
+
+@media (min-width: 768px) {
+    .page-header { padding: 24px 32px 12px; }
+    .content-area { padding: 16px 32px; }
+
+    .rezept-liste { grid-template-columns: repeat(2, 1fr); }
+    .rezept-karte-bild { height: 180px; }
+
+    .modal-overlay { align-items: center; }
+    .modal {
+        border-radius: var(--radius);
+        max-width: 560px;
+    }
+
+    .bottom-nav {
+        position: static;
+        transform: none;
+        margin: 0 auto;
+        border-top: none;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 0;
+        box-shadow: var(--shadow);
+    }
+
+    .page-container { padding-bottom: 20px; }
+
+    .toast { bottom: 24px; }
+}
+
+@media (min-width: 1024px) {
+    .rezept-liste { grid-template-columns: repeat(3, 1fr); }
+}

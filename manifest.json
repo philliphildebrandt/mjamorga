@@ -1,0 +1,26 @@
+{
+    "name": "MjamOrga",
+    "short_name": "MjamOrga",
+    "description": "Rezepte, Wochenplan und Einkaufsliste – einfach organisiert.",
+    "lang": "de",
+    "start_url": "./index.html",
+    "scope": "./",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#faf8f5",
+    "theme_color": "#f8b400",
+    "icons": [
+        {
+            "src": "icons/icon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any"
+        },
+        {
+            "src": "icons/icon-maskable.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "maskable"
+        }
+    ]
+}

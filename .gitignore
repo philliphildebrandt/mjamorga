@@ -1,0 +1,16 @@
+# Betriebssystem
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editoren
+.vscode/
+.idea/
+*.swp
+*~
+
+# Lokale Umgebung / Werkzeuge
+node_modules/
+.env
+.env.local
+*.log

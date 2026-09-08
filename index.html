@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>MjamOrga</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#f8b400" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#127869;</text></svg>" />
+</head>
+<body>
+    <div id="app">
+        <!-- Navigation -->
+        <nav class="bottom-nav" id="bottomNav" aria-label="Hauptnavigation">
+            <a href="#dashboard" class="nav-item active" data-page="dashboard">
+                <span class="nav-icon">🏠</span>
+                <span class="nav-label">Dashboard</span>
+            </a>
+            <a href="#rezepte" class="nav-item" data-page="rezepte">
+                <span class="nav-icon">📖</span>
+                <span class="nav-label">Rezepte</span>
+            </a>
+            <a href="#wochenplan" class="nav-item" data-page="wochenplan">
+                <span class="nav-icon">📅</span>
+                <span class="nav-label">Wochenplan</span>
+            </a>
+            <a href="#einkaufsliste" class="nav-item" data-page="einkaufsliste">
+                <span class="nav-icon">🛒</span>
+                <span class="nav-label">Einkauf</span>
+            </a>
+        </nav>
+
+        <!-- Seiten -->
+        <main class="page-container">
+            <!-- Dashboard -->
+            <section id="page-dashboard" class="page active">
+                <header class="page-header">
+                    <h1>Dashboard</h1>
+                    <p class="subtitle">Dein Überblick für heute</p>
+                </header>
+                <div id="dashboardContent" class="content-area">
+                    <!-- Dynamisch gefüllt -->
+                </div>
+            </section>
+
+            <!-- Rezepte -->
+            <section id="page-rezepte" class="page">
+                <header class="page-header">
+                    <h1>Rezepte</h1>
+                    <button class="btn btn-primary" id="btnNeuesRezept" aria-label="Neues Rezept erstellen">＋ Neues Rezept</button>
+                </header>
+                <div class="content-area">
+                    <div id="rezeptListe" class="rezept-liste">
+                        <!-- Dynamisch gefüllt -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Rezept-Detailansicht -->
+            <section id="page-rezept-detail" class="page">
+                <header class="page-header detail-header">
+                    <button class="btn btn-back" id="btnRezeptZurueck" aria-label="Zurück">←</button>
+                    <h2 id="detailTitel">Rezept</h2>
+                    <button class="btn btn-edit" id="btnRezeptBearbeiten" aria-label="Bearbeiten">✏️</button>
+                </header>
+                <div id="rezeptDetailContent" class="content-area">
+                    <!-- Dynamisch gefüllt -->
+                </div>
+            </section>
+
+            <!-- Rezept-Formular (Neu / Bearbeiten) -->
+            <section id="page-rezept-form" class="page">
+                <header class="page-header detail-header">
+                    <button class="btn btn-back" id="btnFormZurueck" aria-label="Zurück">←</button>
+                    <h2 id="formTitel">Rezept bearbeiten</h2>
+                    <span class="header-platzhalter"></span>
+                </header>
+                <div class="content-area">
+                    <form id="rezeptForm" class="rezept-form">
+                        <input type="hidden" id="formRezeptId" value="" />
+
+                        <div class="form-group">
+                            <label for="formTitelFeld">Titel</label>
+                            <input type="text" id="formTitelFeld" required placeholder="z.B. Spaghetti Bolognese" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="formLinkFeld">Link (optional)</label>
+                            <input type="url" id="formLinkFeld" placeholder="https://..." />
+                            <small id="linkHinweis" class="form-hint"></small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="formZutatenFeld">Zutaten (eine pro Zeile)</label>
+                            <textarea id="formZutatenFeld" rows="5" placeholder="500 g Nudeln&#10;2 Dosen Tomaten&#10;1 Zwiebel"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="formTextFeld">Text / Notizen</label>
+                            <textarea id="formTextFeld" rows="6" placeholder="Zubereitung, Notizen..."></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label id="labelBewertung">Bewertung</label>
+                            <div class="sterne-eingabe" id="sterneEingabe" role="group" aria-labelledby="labelBewertung">
+                                <button type="button" class="stern" data-wert="1" aria-label="1 Stern">⭐</button>
+                                <button type="button" class="stern" data-wert="2" aria-label="2 Sterne">⭐</button>
+                                <button type="button" class="stern" data-wert="3" aria-label="3 Sterne">⭐</button>
+                                <button type="button" class="stern" data-wert="4" aria-label="4 Sterne">⭐</button>
+                                <button type="button" class="stern" data-wert="5" aria-label="5 Sterne">⭐</button>
+                            </div>
+                            <small class="form-hint">Erneut auf den gleichen Stern tippen setzt die Bewertung zurück.</small>
+                            <input type="hidden" id="formBewertung" value="0" />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="formBildFeld">Vorschaubild-URL (optional)</label>
+                            <input type="url" id="formBildFeld" placeholder="https://... oder leer lassen" />
+                            <small class="form-hint">Zeigt der Link direkt auf eine Bilddatei, wird er automatisch übernommen.</small>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary btn-block" id="btnFormSpeichern">💾 Speichern</button>
+                            <button type="button" class="btn btn-danger btn-block" id="btnFormLoeschen" style="display:none;">🗑️ Löschen</button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Wochenplan -->
+            <section id="page-wochenplan" class="page">
+                <header class="page-header">
+                    <h1>Wochenplan</h1>
+                    <p class="subtitle">Plane deine Mahlzeiten</p>
+                </header>
+                <div class="content-area">
+                    <div id="wochenplanContainer" class="wochenplan-container">
+                        <!-- Dynamisch gefüllt -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Einkaufsliste -->
+            <section id="page-einkaufsliste" class="page">
+                <header class="page-header">
+                    <h1>Einkaufsliste</h1>
+                    <button class="btn btn-primary" id="btnProduktHinzufuegen" aria-label="Produkt hinzufügen">＋ Produkt</button>
+                </header>
+                <div class="content-area">
+                    <div id="einkaufslisteContainer" class="einkaufsliste-container">
+                        <!-- Dynamisch gefüllt -->
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Modal: Produkt hinzufügen -->
+        <div class="modal-overlay" id="produktModal" style="display:none;" role="dialog" aria-modal="true" aria-label="Produkt hinzufügen">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3 id="produktModalTitel">Produkt hinzufügen</h3>
+                    <button class="btn btn-close" id="btnModalSchliessen" aria-label="Schließen">✕</button>
+                </div>
+                <div class="modal-body">
+                    <form id="produktForm">
+                        <input type="hidden" id="produktId" value="" />
+                        <div class="form-group">
+                            <label for="produktName">Produktname</label>
+                            <input type="text" id="produktName" required placeholder="z.B. Tomaten" />
+                        </div>
+                        <div class="form-group">
+                            <label for="produktKategorie">Kategorie</label>
+                            <select id="produktKategorie">
+                                <!-- Dynamisch gefüllt -->
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block" id="btnProduktSpeichern">Hinzufügen</button>
+                    </form>
+
+                    <div id="massenBereich">
+                        <div class="modal-divider">oder</div>
+
+                        <div class="form-group">
+                            <label for="produktMassenEingabe">Mehrere Produkte einfügen</label>
+                            <textarea id="produktMassenEingabe" rows="5" placeholder="500 g Nudeln&#10;2 Dosen Tomaten&#10;1 Zwiebel&#10;200 g Parmesan&#10;Basilikum"></textarea>
+                            <button type="button" class="btn btn-secondary btn-block" id="btnMassenEinfuegen">📋 Alle Zeilen als Produkte einfügen</button>
+                            <small class="form-hint">Nutzt die oben gewählte Kategorie. Aufzählungszeichen und Nummerierungen werden entfernt.</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast -->
+        <div class="toast" id="toast" style="display:none;" role="status" aria-live="polite"></div>
+    </div>
+
+    <script src="js/storage.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
