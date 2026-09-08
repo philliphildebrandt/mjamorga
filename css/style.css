@@ -946,3 +946,74 @@ body {
 @media (min-width: 1024px) {
     .rezept-liste { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* === Live-Sync: Statuspunkt, Modal, Dashboard-Zeile === */
+
+.sync-punkt {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--border);
+    margin-right: 4px;
+    vertical-align: middle;
+    transition: background 0.3s ease;
+}
+.sync-punkt.verbunden { background: var(--success); }
+.sync-punkt.verbindet { background: var(--primary); animation: syncBlink 1s ease-in-out infinite; }
+.sync-punkt.offline   { background: var(--text-light); }
+.sync-punkt.fehler    { background: var(--danger); }
+.sync-punkt.aus       { display: none; }
+
+@keyframes syncBlink {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.3; }
+}
+
+.sync-status {
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+}
+.sync-status.verbunden { background: #e6f6ec; color: #1e7a45; }
+.sync-status.verbindet { background: var(--primary-light); color: var(--primary-dark); }
+.sync-status.fehler    { background: #fdecea; color: var(--danger); }
+
+.sync-code {
+    font-family: ui-monospace, 'Cascadia Mono', 'Courier New', monospace;
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
+    background: var(--primary-light);
+    color: var(--text);
+    word-break: break-all;
+    user-select: all;
+}
+
+.modal-body .btn-block + .btn-block { margin-top: 8px; }
+.modal-body .btn-block + .form-hint { display: block; margin-top: 8px; }
+
+.sync-hinweis {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+.sync-hinweis code {
+    background: var(--bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.85em;
+}
+
+.sync-zeile {
+    margin-top: 14px;
+    text-align: center;
+    color: var(--text-light);
+    font-size: 0.8rem;
+}
+.sync-zeile.fehler { color: var(--danger); }

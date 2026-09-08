@@ -15,7 +15,7 @@ in diesem Ordner.
 | Styling | Reines CSS mit Custom Properties (`:root`-Variablen), mobile-first |
 | Logik | Vanilla JavaScript (ES2020+), keine Frameworks, keine Build-Tools |
 | Daten | JSON-Strukturen, persistiert in `localStorage` |
-| Backend | keines – die App läuft als reine statische Auslieferung |
+| Backend | keines für die App selbst; optional Firebase Firestore als Datenspeicher für den Geräte-Sync (siehe [05-sync.md](05-sync.md)) |
 
 Kein PHP, keine Datenbank, kein Bundler. Die App ist durch simples Öffnen der
 `index.html` bzw. über einen beliebigen Static-Webserver lauffähig.
@@ -28,15 +28,19 @@ mjamorga/
 ├── manifest.json       PWA-Manifest (Home-Screen, vorbereitet)
 ├── css/
 │   └── style.css       Design-System + alle Modul-Styles
+├── firestore.rules     Sicherheitsregeln für den optionalen Sync
 ├── js/
-│   ├── storage.js      Persistenz-Layer + Datums-/Wochenlogik
-│   └── app.js          Anwendungslogik, Rendering, Events
+│   ├── storage.js      Persistenz-Layer + Sync-Drehscheibe + Datums-/Wochenlogik
+│   ├── app.js          Anwendungslogik, Rendering, Events
+│   ├── sync.js         Firestore-Adapter (ES-Modul, optional)
+│   └── firebase-config.js  Projektdaten aus der Firebase-Konsole
 └── docs/               Diese Konzeptdokumentation
 ```
 
 Die Trennung `storage.js` / `app.js` ist bewusst: `storage.js` kennt nur Daten,
-`app.js` kennt nur die Oberfläche. Ein späterer Austausch der Persistenz
-(IndexedDB, Cloud-Sync) betrifft ausschließlich `storage.js`.
+`app.js` kennt nur die Oberfläche. Der Geräte-Sync ist genau so eingehängt:
+`sync.js` registriert sich bei `storage.js`, `app.js` hört nur auf
+`beiExternerAenderung()` und `beiSyncStatus()`, ohne Firebase zu kennen.
 
 ### Persistenz
 

@@ -1,0 +1,43 @@
+// === MjamOrga – Firestore-Sicherheitsregeln ===
+//
+// In der Firebase-Konsole einfügen: Firestore Database -> Regeln -> Veröffentlichen.
+//
+// Modell: Wer angemeldet ist (anonym reicht) und einen Haushaltscode kennt,
+// darf die drei Dokumente dieses Haushalts lesen und schreiben. Der Code ist
+// das Geheimnis – mindestens 8 Zeichen, nur a-z, 0-9 und Bindestrich.
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /haushalte/{haushalt}/daten/{bereich} {
+      allow read: if istAngemeldet() && istHaushalt(haushalt) && istBereich(bereich);
+      allow write: if istAngemeldet() && istHaushalt(haushalt) && istBereich(bereich)
+                   && istGueltigesDokument();
+    }
+
+    // Alles andere bleibt gesperrt.
+    match /{dokument=**} {
+      allow read, write: if false;
+    }
+
+    function istAngemeldet() {
+      return request.auth != null;
+    }
+
+    function istHaushalt(code) {
+      return code.matches('^[a-z0-9-]{8,64}$');
+    }
+
+    function istBereich(name) {
+      return name in ['rezepte', 'wochenplan', 'einkaufsliste'];
+    }
+
+    // Genau die Felder, die js/sync.js schreibt – nicht mehr.
+    function istGueltigesDokument() {
+      return request.resource.data.keys().hasOnly(['wert', 'geaendert', 'von'])
+          && request.resource.data.keys().hasAll(['wert', 'geaendert']);
+    }
+  }
+}

@@ -1,7 +1,8 @@
 # MjamOrga
 
 Mobile-first Webapp für Rezepte, Wochenplan und Einkaufsliste.
-HTML, CSS, JavaScript, JSON – kein PHP, keine Datenbank, kein Build-Schritt.
+HTML, CSS, JavaScript, JSON – kein PHP, kein Build-Schritt.
+Optional: Live-Sync zwischen Geräten über Firebase Firestore (kostenloser Tarif).
 
 ## Starten
 
@@ -19,8 +20,11 @@ python3 -m http.server 8000
 index.html          Markup aller Seiten
 manifest.json       PWA-Manifest
 css/style.css       Design-System und alle Modul-Styles
-js/storage.js       Persistenz (localStorage) + Datums-/Wochenlogik
+js/storage.js       Persistenz (localStorage) + Sync-Drehscheibe + Datums-/Wochenlogik
 js/app.js           Anwendungslogik, Rendering, Events
+js/sync.js          Live-Sync über Firestore (ES-Modul, optional)
+js/firebase-config.js  Firebase-Projektdaten (leer = Sync aus)
+firestore.rules     Sicherheitsregeln für die Firebase-Konsole
 icons/              App-Icons
 docs/               Konzept je Modul
 ```
@@ -34,6 +38,7 @@ docs/               Konzept je Modul
 | [docs/02-rezepte.md](docs/02-rezepte.md) | Rezepte |
 | [docs/03-wochenplan.md](docs/03-wochenplan.md) | Wochenplan |
 | [docs/04-einkaufsliste.md](docs/04-einkaufsliste.md) | Einkaufsliste |
+| [docs/05-sync.md](docs/05-sync.md) | Live-Sync: Einrichtung in Firebase, Bedienung, Grenzen |
 
 ## Daten
 

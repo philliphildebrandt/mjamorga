@@ -12,6 +12,8 @@ class MjamOrgaApp {
         this.aufgeklappteWochen = new Set(); // reiner Oberflächenzustand, nicht gespeichert
         this.autoBildUrl = null;             // zuletzt automatisch ermittelte Bild-URL
         this.toastTimeout = null;
+        this.syncStatus = { zustand: 'aus', text: '' };
+        this.ausstehendesRendern = false;    // externe Änderung wartet, bis eine Eingabe beendet ist
 
         this.init();
     }
@@ -20,6 +22,7 @@ class MjamOrgaApp {
         this.fuelleKategorieAuswahl();
         this.bindNavigation();
         this.bindEvents();
+        this.bindSync();
         this.zeigeSeite('dashboard');
     }
 
@@ -200,7 +203,10 @@ class MjamOrgaApp {
         });
 
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') this.schliesseProduktModal();
+            if (e.key === 'Escape') {
+                this.schliesseProduktModal();
+                this.schliesseSyncModal();
+            }
         });
 
         document.getElementById('produktForm').addEventListener('submit', (e) => {
@@ -241,6 +247,151 @@ class MjamOrgaApp {
     }
 
     // =====================================================================
+    // Live-Sync – Änderungen anderer Geräte und das Verbinden-Modal
+    // =====================================================================
+
+    bindSync() {
+        DatenSpeicher.beiExternerAenderung((bereich, wert) => this.verarbeiteExterneAenderung(bereich, wert));
+        DatenSpeicher.beiSyncStatus((status) => this.zeigeSyncStatus(status));
+
+        // Aufgeschobenes Rendern nachholen, sobald keine Eingabe mehr aktiv ist.
+        document.addEventListener('focusout', () => {
+            if (!this.ausstehendesRendern) return;
+            setTimeout(() => {
+                if (this.ausstehendesRendern && !this.eingabeAktiv()) this.rendereAktuelleSeite();
+            }, 0);
+        });
+
+        document.getElementById('btnSyncOeffnen').addEventListener('click', () => this.oeffneSyncModal());
+        document.getElementById('btnSyncSchliessen').addEventListener('click', () => this.schliesseSyncModal());
+        document.getElementById('syncModal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) this.schliesseSyncModal();
+        });
+
+        document.getElementById('syncForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const code = DatenSpeicher.normalisiereHaushalt(document.getElementById('syncCodeFeld').value);
+            if (!DatenSpeicher.istGueltigerHaushalt(code)) {
+                this.zeigeToast('Code: mindestens 8 Zeichen, nur a-z, 0-9 und Bindestrich.');
+                return;
+            }
+            this.verbindeHaushalt(code);
+        });
+
+        document.getElementById('btnSyncNeu').addEventListener('click', () => {
+            this.verbindeHaushalt(DatenSpeicher.generiereHaushalt());
+        });
+
+        document.getElementById('btnSyncTrennen').addEventListener('click', () => {
+            if (!confirm('Dieses Gerät vom Haushalt trennen?\nDie Daten bleiben hier erhalten, werden aber nicht mehr abgeglichen.')) return;
+            DatenSpeicher.trenneHaushalt();
+            this.zeigeToast('Gerät getrennt.');
+        });
+
+        document.getElementById('btnSyncKopieren').addEventListener('click', async () => {
+            const code = DatenSpeicher.ladeHaushalt() || '';
+            try {
+                await navigator.clipboard.writeText(code);
+                this.zeigeToast('Code kopiert.');
+            } catch (e) {
+                this.zeigeToast('Kopieren nicht möglich – Code bitte abschreiben.');
+            }
+        });
+    }
+
+    verbindeHaushalt(code) {
+        if (!DatenSpeicher.verbindeHaushalt(code)) {
+            this.zeigeToast('Sync ist nicht eingerichtet.');
+            return;
+        }
+        document.getElementById('syncCodeFeld').value = '';
+        this.zeigeToast('Verbinde mit Haushalt …');
+    }
+
+    oeffneSyncModal() {
+        this.aktualisiereSyncModal();
+        document.getElementById('syncModal').style.display = 'flex';
+        const feld = document.getElementById('syncCodeFeld');
+        if (this.syncStatus.zustand === 'getrennt') feld.focus();
+    }
+
+    schliesseSyncModal() {
+        document.getElementById('syncModal').style.display = 'none';
+    }
+
+    zeigeSyncStatus(status) {
+        const vorher = this.syncStatus.zustand;
+        this.syncStatus = status;
+
+        const punkt = document.getElementById('syncPunkt');
+        punkt.className = 'sync-punkt ' + status.zustand;
+
+        this.aktualisiereSyncModal();
+        if (this.aktuelleSeite === 'dashboard') this.rendereDashboard();
+
+        if (status.zustand === 'verbunden' && vorher !== 'verbunden') this.zeigeToast('☁️ ' + status.text);
+        if (status.zustand === 'fehler' && vorher !== 'fehler') this.zeigeToast('⚠️ ' + status.text);
+    }
+
+    aktualisiereSyncModal() {
+        const status = this.syncStatus;
+        const haushalt = DatenSpeicher.ladeHaushalt();
+        const verbunden = !!haushalt && status.zustand !== 'aus';
+
+        document.getElementById('syncStatus').textContent = status.text || '';
+        document.getElementById('syncStatus').className = 'sync-status ' + status.zustand;
+        document.getElementById('syncAus').style.display = status.zustand === 'aus' ? 'block' : 'none';
+        document.getElementById('syncVerbunden').style.display = verbunden ? 'block' : 'none';
+        document.getElementById('syncGetrennt').style.display = (!verbunden && status.zustand !== 'aus') ? 'block' : 'none';
+        document.getElementById('syncCodeAnzeige').textContent = haushalt || '';
+    }
+
+    syncZeileHtml() {
+        const status = this.syncStatus;
+        if (status.zustand === 'aus') return '';
+        const symbol = { verbunden: '☁️', verbindet: '⏳', offline: '📴', fehler: '⚠️', getrennt: '☁️' }[status.zustand] || '☁️';
+        const text = status.zustand === 'getrennt' ? 'Nicht mit anderen Geräten verbunden' : status.text;
+        return `<div class="sync-zeile ${status.zustand}">${symbol} ${this.escapeHtml(text)}</div>`;
+    }
+
+    // Ein anderes Gerät hat gespeichert: Datenstand übernehmen, Ansicht auffrischen.
+    verarbeiteExterneAenderung(bereich, wert) {
+        this.daten[bereich] = wert;
+
+        // Während jemand tippt, würde ein Neu-Rendern die Eingabe wegwerfen.
+        if (this.eingabeAktiv()) {
+            this.ausstehendesRendern = true;
+            return;
+        }
+        this.rendereAktuelleSeite();
+    }
+
+    eingabeAktiv() {
+        const el = document.activeElement;
+        if (!el) return false;
+        const tag = el.tagName;
+        return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+    }
+
+    rendereAktuelleSeite() {
+        this.ausstehendesRendern = false;
+        const seite = this.aktuelleSeite;
+
+        if (seite === 'dashboard') this.rendereDashboard();
+        else if (seite === 'rezepte') this.rendereRezeptListe();
+        else if (seite === 'wochenplan') this.rendereWochenplan();
+        else if (seite === 'einkaufsliste') this.rendereEinkaufsliste();
+        else if (seite === 'rezept-detail') {
+            if (this.findeRezept(this.aktuellesRezeptId)) this.zeigeRezeptDetail(this.aktuellesRezeptId);
+            else {
+                this.zeigeToast('Das Rezept wurde auf einem anderen Gerät gelöscht.');
+                this.zeigeSeite('rezepte');
+            }
+        }
+        // rezept-form: bewusst nicht anfassen – beim Speichern gewinnt die letzte Änderung.
+    }
+
+    // =====================================================================
     // Dashboard – reine Leseansicht auf Wochenplan und Rezepte
     // =====================================================================
 
@@ -278,7 +429,8 @@ class MjamOrgaApp {
                     <div class="mahlzeit-titel">🍽️ Heute</div>
                     ${inhalt}
                 </div>
-            </div>`;
+            </div>
+            ${this.syncZeileHtml()}`;
     }
 
     // =====================================================================
