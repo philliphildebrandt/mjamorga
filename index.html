@@ -11,24 +11,50 @@
 </head>
 <body>
     <div id="app">
+        <!-- Hinweis, wenn die Daten von einer neueren App-Version stammen -->
+        <div class="veraltet-banner" id="veraltetBanner" style="display:none;" role="alert">
+            <span id="veraltetText">Die Daten stammen von einer neueren Version der App. Änderungen werden nicht gespeichert.</span>
+            <button type="button" class="btn btn-primary" id="btnNeuLaden">🔄 Neu laden</button>
+        </div>
+
         <!-- Navigation -->
         <nav class="bottom-nav" id="bottomNav" aria-label="Hauptnavigation">
-            <a href="#dashboard" class="nav-item active" data-page="dashboard">
+            <button type="button" class="nav-item" data-gruppe="dashboard" data-page="dashboard">
                 <span class="nav-icon">🏠</span>
                 <span class="nav-label">Dashboard</span>
-            </a>
-            <a href="#rezepte" class="nav-item" data-page="rezepte">
-                <span class="nav-icon">📖</span>
-                <span class="nav-label">Rezepte</span>
-            </a>
-            <a href="#wochenplan" class="nav-item" data-page="wochenplan">
-                <span class="nav-icon">📅</span>
-                <span class="nav-label">Wochenplan</span>
-            </a>
-            <a href="#einkaufsliste" class="nav-item" data-page="einkaufsliste">
+            </button>
+            <div class="nav-gruppe">
+                <button type="button" class="nav-item" data-gruppe="planung" aria-haspopup="true" aria-expanded="false" aria-controls="blasenPlanung">
+                    <span class="nav-icon">📅</span>
+                    <span class="nav-label">Planung</span>
+                </button>
+                <div class="nav-blasen" id="blasenPlanung" role="menu" hidden>
+                    <button type="button" class="nav-blase" role="menuitem" data-page="wochenplan">
+                        <span class="blase-icon">📅</span><span>Wochenplan</span>
+                    </button>
+                    <button type="button" class="nav-blase deaktiviert" role="menuitem" data-page="kalender" aria-disabled="true" title="Kalender kommt später">
+                        <span class="blase-icon">🗓️</span><span>Kalender</span><span class="blase-badge">bald</span>
+                    </button>
+                </div>
+            </div>
+            <button type="button" class="nav-item" data-gruppe="einkauf" data-page="einkaufsliste">
                 <span class="nav-icon">🛒</span>
                 <span class="nav-label">Einkauf</span>
-            </a>
+            </button>
+            <div class="nav-gruppe">
+                <button type="button" class="nav-item" data-gruppe="listen" aria-haspopup="true" aria-expanded="false" aria-controls="blasenListen">
+                    <span class="nav-icon">📋</span>
+                    <span class="nav-label">Listen</span>
+                </button>
+                <div class="nav-blasen" id="blasenListen" role="menu" hidden>
+                    <button type="button" class="nav-blase" role="menuitem" data-page="rezepte">
+                        <span class="blase-icon">📖</span><span>Rezepte</span>
+                    </button>
+                    <button type="button" class="nav-blase" role="menuitem" data-page="listen">
+                        <span class="blase-icon">📋</span><span>Meine Listen</span>
+                    </button>
+                </div>
+            </div>
         </nav>
 
         <!-- Seiten -->
@@ -40,9 +66,12 @@
                         <h1>Dashboard</h1>
                         <p class="subtitle">Dein Überblick für heute</p>
                     </div>
-                    <button class="btn btn-edit" id="btnSyncOeffnen" title="Geräte verbinden" aria-label="Geräte verbinden">
-                        <span class="sync-punkt" id="syncPunkt" aria-hidden="true"></span>☁️
-                    </button>
+                    <div class="header-aktionen">
+                        <button class="btn btn-edit" id="btnDatenOeffnen" title="Daten sichern und laden" aria-label="Daten sichern und laden">💾</button>
+                        <button class="btn btn-edit" id="btnSyncOeffnen" title="Geräte verbinden" aria-label="Geräte verbinden">
+                            <span class="sync-punkt" id="syncPunkt" aria-hidden="true"></span>☁️
+                        </button>
+                    </div>
                 </header>
                 <div id="dashboardContent" class="content-area">
                     <!-- Dynamisch gefüllt -->
@@ -158,6 +187,41 @@
                     </div>
                 </div>
             </section>
+
+            <!-- Listen: Übersicht -->
+            <section id="page-listen" class="page">
+                <header class="page-header">
+                    <h1>Meine Listen</h1>
+                    <button class="btn btn-primary" id="btnNeueListe" aria-label="Neue Liste anlegen">＋ Neue Liste</button>
+                </header>
+                <div class="content-area">
+                    <div id="listenKacheln" class="listen-kacheln">
+                        <!-- Dynamisch gefüllt -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Listen: Detailansicht (bildschirmfüllend) -->
+            <section id="page-listen-detail" class="page">
+                <header class="page-header detail-header" id="listeDetailHeader">
+                    <button class="btn btn-back" id="btnListeZurueck" aria-label="Zurück zu den Listen">←</button>
+                    <h2 id="listeDetailTitel">Liste</h2>
+                    <button class="btn btn-edit" id="btnListeAuswahl" title="Punkte auswählen" aria-label="Punkte auswählen" aria-pressed="false">☑️</button>
+                    <button class="btn btn-edit" id="btnListeBearbeiten" title="Liste bearbeiten" aria-label="Liste bearbeiten">✏️</button>
+                </header>
+                <div class="content-area">
+                    <div class="liste-detail-kopf" id="listeDetailKopf">
+                        <!-- Dynamisch gefüllt: Zeitraum, Fortschritt -->
+                    </div>
+                    <button class="btn btn-primary btn-block" id="btnPunktHinzufuegen" aria-label="Punkt hinzufügen">＋ Punkt</button>
+                    <div id="listeDetailContainer" class="einkaufsliste-container">
+                        <!-- Dynamisch gefüllt -->
+                    </div>
+                    <div id="listeDetailFuss" class="liste-detail-fuss">
+                        <!-- Dynamisch gefüllt: Erledigte aufräumen -->
+                    </div>
+                </div>
+            </section>
         </main>
 
         <!-- Modal: Produkt hinzufügen -->
@@ -174,11 +238,15 @@
                             <label for="produktName">Produktname</label>
                             <input type="text" id="produktName" required placeholder="z.B. Tomaten" />
                         </div>
-                        <div class="form-group">
+                        <div class="form-group" id="produktKategorieGruppe">
                             <label for="produktKategorie">Kategorie</label>
                             <select id="produktKategorie">
                                 <!-- Dynamisch gefüllt -->
                             </select>
+                        </div>
+                        <div class="form-group" id="punktFaelligGruppe" style="display:none;">
+                            <label for="punktFaellig">Fällig am (optional)</label>
+                            <input type="date" id="punktFaellig" />
                         </div>
                         <button type="submit" class="btn btn-primary btn-block" id="btnProduktSpeichern">Hinzufügen</button>
                     </form>
@@ -190,8 +258,43 @@
                             <label for="produktMassenEingabe">Mehrere Produkte einfügen</label>
                             <textarea id="produktMassenEingabe" rows="5" placeholder="500 g Nudeln&#10;2 Dosen Tomaten&#10;1 Zwiebel&#10;200 g Parmesan&#10;Basilikum"></textarea>
                             <button type="button" class="btn btn-secondary btn-block" id="btnMassenEinfuegen">📋 Alle Zeilen als Produkte einfügen</button>
-                            <small class="form-hint">Nutzt die oben gewählte Kategorie. Aufzählungszeichen und Nummerierungen werden entfernt.</small>
+                            <small class="form-hint" id="massenHinweis">Nutzt die oben gewählte Kategorie. Aufzählungszeichen und Nummerierungen werden entfernt.</small>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: Daten sichern und laden -->
+        <div class="modal-overlay" id="datenModal" style="display:none;" role="dialog" aria-modal="true" aria-label="Daten sichern und laden">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3>💾 Daten sichern und laden</h3>
+                    <button class="btn btn-close" id="btnDatenSchliessen" aria-label="Schließen">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="daten-uebersicht" id="datenUebersicht">
+                        <!-- Dynamisch gefüllt: Anzahl je Bereich, Schema-Version -->
+                    </div>
+
+                    <div id="datenAktionen">
+                        <button type="button" class="btn btn-primary btn-block" id="btnDatenExport">⬇️ Sicherung herunterladen</button>
+                        <small class="form-hint">Eine JSON-Datei mit allen Rezepten, Wochen, Produkten und Listen. Aufbewahren wie ein Backup.</small>
+
+                        <div class="modal-divider">oder</div>
+
+                        <label class="btn btn-secondary btn-block datei-knopf" for="datenImportDatei">⬆️ Sicherung laden …</label>
+                        <input type="file" id="datenImportDatei" accept=".json,application/json" class="datei-eingabe" />
+                        <small class="form-hint">Du wählst danach, ob die Datei den Bestand ergänzt oder ersetzt.</small>
+                    </div>
+
+                    <div id="datenVorschau" style="display:none;">
+                        <div class="daten-vorschau-kopf" id="datenVorschauText"></div>
+                        <button type="button" class="btn btn-primary btn-block" id="btnImportZusammenfuehren">Ergänzen (empfohlen)</button>
+                        <small class="form-hint">Einträge aus der Datei kommen dazu. Bei gleicher ID gewinnt die Datei.</small>
+                        <button type="button" class="btn btn-danger btn-block" id="btnImportErsetzen">Alles ersetzen</button>
+                        <small class="form-hint">Der aktuelle Bestand wird durch die Datei ersetzt, auch auf allen verbundenen Geräten.</small>
+                        <button type="button" class="btn btn-secondary btn-block" id="btnImportAbbrechen">Abbrechen</button>
                     </div>
                 </div>
             </div>
@@ -237,6 +340,73 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- Modal: Liste anlegen / bearbeiten -->
+        <div class="modal-overlay" id="listeModal" style="display:none;" role="dialog" aria-modal="true" aria-label="Liste anlegen">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3 id="listeModalTitel">Neue Liste</h3>
+                    <button class="btn btn-close" id="btnListeModalSchliessen" aria-label="Schließen">✕</button>
+                </div>
+                <div class="modal-body">
+                    <form id="listeForm">
+                        <input type="hidden" id="listeId" value="" />
+                        <div class="form-group">
+                            <label for="listeTitel">Titel</label>
+                            <input type="text" id="listeTitel" required placeholder="z.B. Packliste Urlaub" />
+                        </div>
+                        <div class="form-group">
+                            <label id="labelListeFarbe">Farbe</label>
+                            <div class="farb-auswahl" id="listeFarbe" role="radiogroup" aria-labelledby="labelListeFarbe">
+                                <!-- Dynamisch gefüllt -->
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="listeArt">Art der Liste</label>
+                            <select id="listeArt">
+                                <!-- Dynamisch gefüllt -->
+                            </select>
+                            <small class="form-hint">Todos haben zusätzlich ein Fälligkeitsdatum je Punkt.</small>
+                        </div>
+                        <div class="form-group form-zeitraum">
+                            <div>
+                                <label for="listeVon">Zeitraum von</label>
+                                <input type="date" id="listeVon" />
+                            </div>
+                            <div>
+                                <label for="listeBis">bis</label>
+                                <input type="date" id="listeBis" />
+                            </div>
+                        </div>
+                        <small class="form-hint" id="listeVorgemerktHinweis" style="display:none;"></small>
+                        <button type="submit" class="btn btn-primary btn-block" id="btnListeSpeichern">Anlegen</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: Ziel wählen (Punkte kopieren) -->
+        <div class="modal-overlay" id="zielModal" style="display:none;" role="dialog" aria-modal="true" aria-label="Ziel wählen">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3 id="zielModalTitel">Kopieren nach …</h3>
+                    <button class="btn btn-close" id="btnZielModalSchliessen" aria-label="Schließen">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div id="zielListe" class="ziel-liste">
+                        <!-- Dynamisch gefüllt -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Aktionsleiste im Auswahlmodus -->
+        <div class="auswahl-leiste" id="auswahlLeiste" style="display:none;" role="toolbar" aria-label="Ausgewählte Punkte">
+            <span class="auswahl-anzahl" id="auswahlAnzahl">0 ausgewählt</span>
+            <button type="button" class="btn btn-secondary" id="btnAuswahlKopieren">Kopieren nach …</button>
+            <button type="button" class="btn btn-primary" id="btnAuswahlNeueListe">Neue Liste daraus</button>
+            <button type="button" class="btn btn-close" id="btnAuswahlAbbrechen" aria-label="Auswahl beenden">✕</button>
         </div>
 
         <!-- Toast -->

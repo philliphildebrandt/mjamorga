@@ -1,6 +1,6 @@
 # MjamOrga – Live-Sync über Firebase Firestore
 
-Mehrere Geräte teilen sich einen Datenstand: Rezepte, Wochenplan und Einkaufsliste.
+Mehrere Geräte teilen sich einen Datenstand: Rezepte, Wochenplan, Einkaufsliste und Listen.
 Änderungen erscheinen auf allen verbundenen Geräten innerhalb von Sekunden.
 
 Die App bleibt eine statische Seite auf GitHub Pages. Nur die Daten liegen in
@@ -33,7 +33,11 @@ Jedes Gerät bekommt damit eine feste, anonyme Nutzer-ID. Niemand muss ein Konto
 2. Den kompletten Inhalt von [`firestore.rules`](../firestore.rules) hineinkopieren.
 3. **Veröffentlichen**.
 
-Die Regeln lassen nur angemeldete Geräte an die drei Dokumente eines Haushalts,
+Kommt später ein Bereich dazu (so wie `listen` mit dem Listen-Modul) oder ein
+Feld im Dokument (so wie `version`), muss die Datei erneut eingespielt werden. Andernfalls lehnt Firestore Schreibvorgänge auf
+den neuen Bereich ab, und der Statuspunkt wird rot mit „Zugriff verweigert".
+
+Die Regeln lassen nur angemeldete Geräte an die vier Dokumente eines Haushalts,
 und nur mit exakt den Feldern, die die App schreibt.
 
 ### 4. Web-App registrieren und Konfiguration eintragen
@@ -103,7 +107,10 @@ app.js  ◀──beiExternerAenderung──  storage.js
 - **sync.js** ist ein ES-Modul und lädt das Firebase-SDK vom Google-CDN. Lädt es
   nicht (Erststart ohne Netz), passiert nichts weiter, die App läuft lokal.
 - **Ein Dokument je Bereich**, Pfad `haushalte/{code}/daten/{bereich}`, Feld `wert`
-  enthält exakt die Struktur, die auch im `localStorage` liegt.
+  enthält exakt die Struktur, die auch im `localStorage` liegt. Das Feld
+  `version` trägt die Schema-Version; ältere Dokumente werden beim Lesen gehoben,
+  neuere lösen den Abwärtsschutz aus (siehe
+  [09-datensicherung.md](09-datensicherung.md)).
 - **Echo-Vermeidung:** Der eigene Schreibvorgang kommt sofort als Snapshot zurück.
   Snapshots mit `hasPendingWrites` werden ignoriert, und `uebernimmExtern()`
   vergleicht zusätzlich per JSON mit dem lokalen Stand. Nur echte Änderungen
@@ -133,7 +140,7 @@ Dokument pro Produkt, das ist bei Bedarf ein überschaubarer Umbau in `sync.js`.
 hundert Rezepte passen. Bilder werden nur als URL gespeichert, nie als Datei.
 
 **Kontingent.** Spark-Tarif: 50.000 Lesevorgänge, 20.000 Schreibvorgänge pro Tag.
-Ein App-Start liest drei Dokumente, jede Änderung ist ein Schreibvorgang. Eine
+Ein App-Start liest vier Dokumente, jede Änderung ist ein Schreibvorgang. Eine
 Familie liegt weit unter einem Prozent davon. Wird das Kontingent erreicht, lehnt
 Firestore bis zum nächsten Tag ab; es entstehen keine Kosten.
 

@@ -31,13 +31,14 @@ service cloud.firestore {
     }
 
     function istBereich(name) {
-      return name in ['rezepte', 'wochenplan', 'einkaufsliste'];
+      return name in ['rezepte', 'wochenplan', 'einkaufsliste', 'listen'];
     }
 
     // Genau die Felder, die js/sync.js schreibt – nicht mehr.
     function istGueltigesDokument() {
-      return request.resource.data.keys().hasOnly(['wert', 'geaendert', 'von'])
-          && request.resource.data.keys().hasAll(['wert', 'geaendert']);
+      return request.resource.data.keys().hasOnly(['wert', 'version', 'geaendert', 'von'])
+          && request.resource.data.keys().hasAll(['wert', 'geaendert'])
+          && (!('version' in request.resource.data) || request.resource.data.version is int);
     }
   }
 }

@@ -1,6 +1,6 @@
 # MjamOrga
 
-Mobile-first Webapp für Rezepte, Wochenplan und Einkaufsliste.
+Mobile-first Webapp für Rezepte, Wochenplan, Einkaufsliste und freie Listen.
 HTML, CSS, JavaScript, JSON – kein PHP, kein Build-Schritt.
 Optional: Live-Sync zwischen Geräten über Firebase Firestore (kostenloser Tarif).
 
@@ -20,7 +20,7 @@ python3 -m http.server 8000
 index.html          Markup aller Seiten
 manifest.json       PWA-Manifest
 css/style.css       Design-System und alle Modul-Styles
-js/storage.js       Persistenz (localStorage) + Sync-Drehscheibe + Datums-/Wochenlogik
+js/storage.js       Persistenz (localStorage) + Sync-Drehscheibe + Datums-/Wochen-/Listenlogik
 js/app.js           Anwendungslogik, Rendering, Events
 js/sync.js          Live-Sync über Firestore (ES-Modul, optional)
 js/firebase-config.js  Firebase-Projektdaten (leer = Sync aus)
@@ -39,10 +39,15 @@ docs/               Konzept je Modul
 | [docs/03-wochenplan.md](docs/03-wochenplan.md) | Wochenplan |
 | [docs/04-einkaufsliste.md](docs/04-einkaufsliste.md) | Einkaufsliste |
 | [docs/05-sync.md](docs/05-sync.md) | Live-Sync: Einrichtung in Firebase, Bedienung, Grenzen |
+| [docs/06-roadmap.md](docs/06-roadmap.md) | Geplantes Modul Kalender, Google-Kopplung, offene Punkte |
+| [docs/07-listen.md](docs/07-listen.md) | Listen |
+| [docs/08-navigation.md](docs/08-navigation.md) | Navigation mit zwei Ebenen |
+| [docs/09-datensicherung.md](docs/09-datensicherung.md) | Export/Import, Schema-Version, Migrationskette |
 
 ## Daten
 
-Alles liegt im `localStorage` des Browsers, unter drei Schlüsseln:
-`mjamorga_rezepte`, `mjamorga_wochenplan`, `mjamorga_einkaufsliste`.
-Ein Export/Import ist noch nicht umgesetzt – ein geleerter Browser-Speicher
-bedeutet aktuell Datenverlust.
+Alles liegt im `localStorage` des Browsers, unter vier Schlüsseln:
+`mjamorga_rezepte`, `mjamorga_wochenplan`, `mjamorga_einkaufsliste`, `mjamorga_listen`.
+Mit eingerichtetem Live-Sync werden dieselben vier Bereiche zusätzlich in Firestore gehalten.
+Jeder Bereich trägt eine Schema-Version; ältere Daten werden beim Laden migriert.
+Über 💾 auf dem Dashboard lassen sich alle Daten als JSON sichern und wieder laden.

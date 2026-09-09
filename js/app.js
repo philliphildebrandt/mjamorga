@@ -3,6 +3,27 @@
 // Diese Datei kennt die Oberfläche, storage.js kennt die Daten.
 // Rendering läuft immer in eine Richtung: Daten -> Ansicht.
 
+// Zwei Ebenen: vier Gruppen in der Bottom-Navigation, darüber die Module als
+// Blasen. Eine Gruppe mit genau einer Seite wechselt direkt, ohne Blasen.
+const SEITEN_GRUPPE = {
+    dashboard: 'dashboard',
+    wochenplan: 'planung',
+    kalender: 'planung',
+    einkaufsliste: 'einkauf',
+    rezepte: 'listen',
+    'rezept-detail': 'listen',
+    'rezept-form': 'listen',
+    listen: 'listen',
+    'listen-detail': 'listen',
+};
+
+// Unterseiten zählen in der Blasenreihe zu ihrem Hauptmodul.
+const HAUPTSEITE = {
+    'rezept-detail': 'rezepte',
+    'rezept-form': 'rezepte',
+    'listen-detail': 'listen',
+};
+
 class MjamOrgaApp {
 
     constructor() {
@@ -15,14 +36,25 @@ class MjamOrgaApp {
         this.syncStatus = { zustand: 'aus', text: '' };
         this.ausstehendesRendern = false;    // externe Änderung wartet, bis eine Eingabe beendet ist
 
+        // Listen-Modul
+        this.aktuelleListeId = null;         // in der Detailansicht geöffnete Liste
+        this.auswahlAktiv = false;           // Mehrfachauswahl in der Detailansicht
+        this.ausgewaehltePunkte = new Set(); // IDs der markierten Punkte (Oberflächenzustand)
+        this.vorgemerktePunkte = null;       // Punkte, die eine neue Liste beim Anlegen übernimmt
+        this.modalKontext = 'einkauf';       // Produkt-Modal dient Einkaufsliste und Listen
+
         this.init();
     }
 
     init() {
+        this.bittePersistentenSpeicher();
         this.fuelleKategorieAuswahl();
+        this.fuelleListenFormular();
         this.bindNavigation();
         this.bindEvents();
+        this.bindListenEvents();
         this.bindSync();
+        this.bindDaten();
         this.zeigeSeite('dashboard');
     }
 
@@ -31,12 +63,70 @@ class MjamOrgaApp {
     // =====================================================================
 
     bindNavigation() {
-        document.querySelectorAll('.nav-item').forEach((item) => {
-            item.addEventListener('click', (e) => {
-                e.preventDefault();
+        const nav = document.getElementById('bottomNav');
+
+        nav.addEventListener('click', (e) => {
+            const blase = e.target.closest('.nav-blase');
+            if (blase) {
+                if (blase.classList.contains('deaktiviert')) {
+                    this.zeigeToast('Der Kalender kommt in einer späteren Version.');
+                    return;
+                }
+                this.schliesseBlasen();
+                this.zeigeSeite(blase.dataset.page);
+                return;
+            }
+
+            const item = e.target.closest('.nav-item');
+            if (!item) return;
+
+            // Gruppe mit genau einer Seite: direkt wechseln.
+            if (item.dataset.page) {
+                this.schliesseBlasen();
                 this.zeigeSeite(item.dataset.page);
-            });
+                return;
+            }
+            this.toggleBlasen(item);
         });
+
+        // Tipp irgendwo daneben schließt die Blasen.
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.bottom-nav')) this.schliesseBlasen();
+        });
+    }
+
+    toggleBlasen(item) {
+        const warOffen = item.getAttribute('aria-expanded') === 'true';
+        this.schliesseBlasen();
+        if (warOffen) return;
+
+        const blasen = document.getElementById(item.getAttribute('aria-controls'));
+        if (!blasen) return;
+
+        item.setAttribute('aria-expanded', 'true');
+        blasen.hidden = false;
+
+        // Das aktuell offene Modul hervorheben.
+        const aktuell = HAUPTSEITE[this.aktuelleSeite] || this.aktuelleSeite;
+        blasen.querySelectorAll('.nav-blase').forEach((b) => {
+            b.classList.toggle('aktuell', b.dataset.page === aktuell);
+        });
+    }
+
+    schliesseBlasen() {
+        document.querySelectorAll('.nav-item[aria-expanded="true"]').forEach((item) => {
+            item.setAttribute('aria-expanded', 'false');
+        });
+        document.querySelectorAll('.nav-blasen').forEach((b) => { b.hidden = true; });
+    }
+
+    // Escape: Blasen schließen und Fokus zurück auf den Gruppen-Eintrag.
+    schliesseBlasenPerTastatur() {
+        const offen = document.querySelector('.nav-item[aria-expanded="true"]');
+        if (!offen) return false;
+        this.schliesseBlasen();
+        offen.focus();
+        return true;
     }
 
     zeigeSeite(seite) {
@@ -47,7 +137,12 @@ class MjamOrgaApp {
             'rezept-form': 'page-rezept-form',
             wochenplan: 'page-wochenplan',
             einkaufsliste: 'page-einkaufsliste',
+            listen: 'page-listen',
+            'listen-detail': 'page-listen-detail',
         };
+
+        // Die Mehrfachauswahl gehört zur Detailansicht und endet mit ihr.
+        if (seite !== 'listen-detail' && this.auswahlAktiv) this.beendeAuswahl();
 
         this.aktuelleSeite = seite;
 
@@ -55,16 +150,18 @@ class MjamOrgaApp {
         const ziel = document.getElementById(seitenMap[seite] || 'page-dashboard');
         if (ziel) ziel.classList.add('active');
 
-        // Bottom-Navigation: Unterseiten der Rezepte halten den Rezepte-Tab aktiv
-        const navSeite = (seite === 'rezept-detail' || seite === 'rezept-form') ? 'rezepte' : seite;
+        // Bottom-Navigation: die Gruppe bleibt aktiv, solange eine ihrer Seiten
+        // offen ist – auch bei Unterseiten wie einem geöffneten Rezept.
+        const gruppe = SEITEN_GRUPPE[seite] || 'dashboard';
         document.querySelectorAll('.nav-item').forEach((item) => {
-            item.classList.toggle('active', item.dataset.page === navSeite);
+            item.classList.toggle('active', item.dataset.gruppe === gruppe);
         });
 
         if (seite === 'dashboard') this.rendereDashboard();
         if (seite === 'rezepte') this.rendereRezeptListe();
         if (seite === 'wochenplan') this.rendereWochenplan();
         if (seite === 'einkaufsliste') this.rendereEinkaufsliste();
+        if (seite === 'listen') this.rendereListen();
 
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -105,6 +202,14 @@ class MjamOrgaApp {
         document.getElementById('rezeptListe').addEventListener('click', (e) => {
             const karte = e.target.closest('[data-rezept-id]');
             if (karte) this.zeigeRezeptDetail(karte.dataset.rezeptId);
+        });
+
+        // Rezept-Detail: Zutaten auf eine Liste kopieren
+        document.getElementById('rezeptDetailContent').addEventListener('click', (e) => {
+            if (!e.target.closest('[data-aktion="zutaten-auf-liste"]')) return;
+            const rezept = this.findeRezept(this.aktuellesRezeptId);
+            if (!rezept || !Array.isArray(rezept.zutaten) || rezept.zutaten.length === 0) return;
+            this.oeffneZielModal(rezept.zutaten.map(z => ({ name: z, faellig: null })), 'Zutaten kopieren nach …', null);
         });
 
         // Dashboard: Karte mit verknüpftem Rezept
@@ -204,8 +309,12 @@ class MjamOrgaApp {
 
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
+                if (this.schliesseBlasenPerTastatur()) return;
                 this.schliesseProduktModal();
                 this.schliesseSyncModal();
+                this.schliesseListeModal();
+                this.schliesseZielModal();
+                this.schliesseDatenModal();
             }
         });
 
@@ -381,6 +490,19 @@ class MjamOrgaApp {
         else if (seite === 'rezepte') this.rendereRezeptListe();
         else if (seite === 'wochenplan') this.rendereWochenplan();
         else if (seite === 'einkaufsliste') this.rendereEinkaufsliste();
+        else if (seite === 'listen') this.rendereListen();
+        else if (seite === 'listen-detail') {
+            const liste = this.aktuelleListe();
+            if (liste) {
+                // Markierungen auf Punkte beschränken, die es noch gibt.
+                const vorhanden = new Set((liste.punkte || []).map(p => p.id));
+                this.ausgewaehltePunkte.forEach((id) => { if (!vorhanden.has(id)) this.ausgewaehltePunkte.delete(id); });
+                this.rendereListeDetail();
+            } else {
+                this.zeigeToast('Die Liste wurde auf einem anderen Gerät gelöscht.');
+                this.zeigeSeite('listen');
+            }
+        }
         else if (seite === 'rezept-detail') {
             if (this.findeRezept(this.aktuellesRezeptId)) this.zeigeRezeptDetail(this.aktuellesRezeptId);
             else {
@@ -496,6 +618,7 @@ class MjamOrgaApp {
             ? `<div class="rezept-detail-block">
                    <h3 class="block-titel">Zutaten</h3>
                    <ul class="zutaten-liste">${zutaten.map(z => `<li>${this.escapeHtml(z)}</li>`).join('')}</ul>
+                   <button type="button" class="btn btn-secondary btn-block" data-aktion="zutaten-auf-liste">📋 Zutaten auf eine Liste</button>
                </div>`
             : '';
 
@@ -900,6 +1023,12 @@ class MjamOrgaApp {
         const nameFeld = document.getElementById('produktName');
         const kategorieFeld = document.getElementById('produktKategorie');
 
+        this.modalKontext = 'einkauf';
+        document.getElementById('produktKategorieGruppe').style.display = 'block';
+        document.getElementById('punktFaelligGruppe').style.display = 'none';
+        document.getElementById('massenHinweis').textContent =
+            'Nutzt die oben gewählte Kategorie. Aufzählungszeichen und Nummerierungen werden entfernt.';
+
         document.getElementById('produktId').value = produkt ? produkt.id : '';
         document.getElementById('produktModalTitel').textContent = produkt ? 'Produkt bearbeiten' : 'Produkt hinzufügen';
         document.getElementById('btnProduktSpeichern').textContent = produkt ? '💾 Speichern' : 'Hinzufügen';
@@ -935,6 +1064,8 @@ class MjamOrgaApp {
     }
 
     speichereProdukt() {
+        if (this.modalKontext === 'liste') return this.speicherePunkt();
+
         const nameFeld = document.getElementById('produktName');
         const name = nameFeld.value.trim();
         const kategorie = document.getElementById('produktKategorie').value;
@@ -972,6 +1103,8 @@ class MjamOrgaApp {
     }
 
     fuegeMassenProdukteHinzu() {
+        if (this.modalKontext === 'liste') return this.fuegeMassenPunkteHinzu();
+
         const feld = document.getElementById('produktMassenEingabe');
         const kategorie = document.getElementById('produktKategorie').value;
         const namen = this.zerlegeZeilen(feld.value);
@@ -1004,6 +1137,765 @@ class MjamOrgaApp {
     }
 
     // =====================================================================
+    // Listen – frei anlegbare Listen mit Kacheln, Detailansicht, Mehrfachauswahl
+    // =====================================================================
+
+    fuelleListenFormular() {
+        document.getElementById('listeFarbe').innerHTML = LISTEN_FARBEN.map((f, i) => `
+            <label class="farb-option farbe-${f}">
+                <input type="radio" name="listeFarbe" value="${f}"${i === 0 ? ' checked' : ''} />
+                <span class="farb-punkt" aria-hidden="true"></span>
+                <span class="farb-name">${this.escapeHtml(f)}</span>
+            </label>`).join('');
+
+        document.getElementById('listeArt').innerHTML = Object.keys(LISTEN_ARTEN)
+            .map(k => `<option value="${k}">${this.escapeHtml(LISTEN_ARTEN[k])}</option>`)
+            .join('');
+    }
+
+    bindListenEvents() {
+        // --- Übersicht ---
+        document.getElementById('btnNeueListe').addEventListener('click', () => {
+            this.oeffneListeModal(null, null);
+        });
+
+        document.getElementById('listenKacheln').addEventListener('click', (e) => {
+            const aktion = e.target.closest('[data-aktion]');
+            const kachel = e.target.closest('[data-liste-id]');
+            if (!kachel) return;
+            const id = kachel.dataset.listeId;
+
+            if (aktion && aktion.dataset.aktion === 'liste-duplizieren') {
+                this.dupliziereListe(id);
+            } else if (aktion && aktion.dataset.aktion === 'liste-loeschen') {
+                this.loescheListe(id);
+            } else {
+                this.zeigeListeDetail(id);
+            }
+        });
+
+        document.getElementById('listenKacheln').addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'BUTTON') return;
+            const kachel = e.target.closest('[data-liste-id]');
+            if (kachel && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                this.zeigeListeDetail(kachel.dataset.listeId);
+            }
+        });
+
+        // --- Detailansicht ---
+        document.getElementById('btnListeZurueck').addEventListener('click', () => {
+            this.zeigeSeite('listen');
+        });
+
+        document.getElementById('btnListeBearbeiten').addEventListener('click', () => {
+            if (this.aktuelleListeId) this.oeffneListeModal(this.aktuelleListeId, null);
+        });
+
+        document.getElementById('btnListeAuswahl').addEventListener('click', () => {
+            if (this.auswahlAktiv) this.beendeAuswahl(); else this.starteAuswahl();
+        });
+
+        document.getElementById('btnPunktHinzufuegen').addEventListener('click', () => {
+            this.oeffnePunktModal(null);
+        });
+
+        const container = document.getElementById('listeDetailContainer');
+
+        container.addEventListener('click', (e) => {
+            const el = e.target.closest('[data-aktion]');
+            if (!el) return;
+            const zeile = el.closest('.produkt-zeile');
+            if (!zeile) return;
+
+            if (this.auswahlAktiv) {
+                // Im Auswahlmodus wählt jeder Tipp auf die Zeile aus, statt abzuhaken.
+                this.toggleAuswahl(zeile.dataset.id, zeile);
+                return;
+            }
+
+            if (el.dataset.aktion === 'produkt-loeschen') {
+                this.loeschePunkt(zeile.dataset.id);
+            } else if (el.dataset.aktion === 'produkt-bearbeiten') {
+                this.oeffnePunktModal(zeile.dataset.id);
+            } else if (el.dataset.aktion === 'produkt-toggle') {
+                this.togglePunkt(zeile.dataset.id, zeile);
+            }
+        });
+
+        container.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'BUTTON') return;
+            const zeile = e.target.closest('.produkt-zeile');
+            if (zeile && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                if (this.auswahlAktiv) this.toggleAuswahl(zeile.dataset.id, zeile);
+                else this.togglePunkt(zeile.dataset.id, zeile);
+            }
+        });
+
+        document.getElementById('listeDetailFuss').addEventListener('click', (e) => {
+            if (e.target.closest('[data-aktion="erledigte-aufraeumen"]')) this.raeumeErledigteAuf();
+        });
+
+        // --- Auswahlleiste ---
+        document.getElementById('btnAuswahlAbbrechen').addEventListener('click', () => this.beendeAuswahl());
+
+        document.getElementById('btnAuswahlKopieren').addEventListener('click', () => {
+            const punkte = this.ausgewaehltePunkteAlsVorlage();
+            if (punkte.length === 0) return;
+            this.oeffneZielModal(punkte, 'Kopieren nach …', this.aktuelleListeId);
+        });
+
+        document.getElementById('btnAuswahlNeueListe').addEventListener('click', () => {
+            const punkte = this.ausgewaehltePunkteAlsVorlage();
+            if (punkte.length === 0) return;
+            this.oeffneListeModal(null, punkte);
+        });
+
+        // --- Modal: Liste anlegen / bearbeiten ---
+        document.getElementById('btnListeModalSchliessen').addEventListener('click', () => this.schliesseListeModal());
+        document.getElementById('listeModal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) this.schliesseListeModal();
+        });
+        document.getElementById('listeForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.speichereListe();
+        });
+
+        // --- Modal: Ziel wählen ---
+        document.getElementById('btnZielModalSchliessen').addEventListener('click', () => this.schliesseZielModal());
+        document.getElementById('zielModal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) this.schliesseZielModal();
+        });
+        document.getElementById('zielListe').addEventListener('click', (e) => {
+            const ziel = e.target.closest('[data-ziel]');
+            if (!ziel) return;
+            this.waehleZiel(ziel.dataset.ziel);
+        });
+    }
+
+    // --- Übersicht ---
+
+    rendereListen() {
+        const container = document.getElementById('listenKacheln');
+        const listen = this.daten.listen;
+
+        if (listen.length === 0) {
+            container.innerHTML = `
+                <div class="leer-hinweis">
+                    <div class="leer-icon">📋</div>
+                    <p>Noch keine Listen angelegt.</p>
+                    <p class="klein">Tippe auf „＋ Neue Liste“ – Packliste, Putzplan, Geschenkideen …</p>
+                </div>`;
+            return;
+        }
+
+        container.innerHTML = listen.map(l => this.listeKachelHtml(l)).join('');
+    }
+
+    listeKachelHtml(liste) {
+        const punkte = DatenSpeicher.sortierePunkte(liste);
+        const gesamt = punkte.length;
+        const erledigt = punkte.filter(p => p.erledigt).length;
+        const teaser = punkte.slice(0, 4);
+        const rest = gesamt - teaser.length;
+
+        const meta = [];
+        const zeitraum = DatenSpeicher.formatZeitraum(liste.von, liste.bis);
+        if (zeitraum) meta.push(this.escapeHtml(zeitraum));
+        meta.push(gesamt === 0 ? 'leer' : `${erledigt} von ${gesamt} erledigt`);
+
+        const teaserHtml = teaser.length > 0
+            ? `<ul class="kachel-teaser">
+                   ${teaser.map(p => `<li class="${p.erledigt ? 'erledigt' : ''}">${this.escapeHtml(p.name)}</li>`).join('')}
+                   ${rest > 0 ? `<li class="mehr">+${rest} weitere</li>` : ''}
+               </ul>`
+            : '';
+
+        return `
+            <div class="liste-kachel farbe-${this.escapeHtml(liste.farbe)}" data-liste-id="${liste.id}" role="button" tabindex="0" aria-label="Liste ${this.escapeHtml(liste.titel)} öffnen">
+                <div class="kachel-streifen" aria-hidden="true"></div>
+                <div class="kachel-body">
+                    <div class="kachel-kopf">
+                        <div class="kachel-titel">${this.escapeHtml(liste.titel)}</div>
+                        ${liste.art === 'todos' ? '<span class="kachel-art">Todos</span>' : ''}
+                    </div>
+                    <div class="kachel-meta">${meta.join(' · ')}</div>
+                    ${teaserHtml}
+                </div>
+                <div class="kachel-aktionen">
+                    <button type="button" class="produkt-aktion" data-aktion="liste-duplizieren" title="Liste duplizieren" aria-label="Liste duplizieren">📑</button>
+                    <button type="button" class="produkt-aktion" data-aktion="liste-loeschen" title="Liste löschen" aria-label="Liste löschen">🗑️</button>
+                </div>
+            </div>`;
+    }
+
+    findeListe(id) {
+        return this.daten.listen.find(l => l.id === id) || null;
+    }
+
+    aktuelleListe() {
+        return this.aktuelleListeId ? this.findeListe(this.aktuelleListeId) : null;
+    }
+
+    // Jede Änderung an einer Liste läuft hier durch: Zeitstempel setzen, speichern.
+    sichereListe(liste) {
+        liste.geaendert = new Date().toISOString();
+        return this.sichere('listen');
+    }
+
+    dupliziereListe(id) {
+        const liste = this.findeListe(id);
+        if (!liste) return;
+        const kopie = DatenSpeicher.dupliziereListe(liste);
+        const index = this.daten.listen.indexOf(liste);
+        this.daten.listen.splice(index + 1, 0, kopie);
+        this.sichere('listen');
+        this.rendereListen();
+        this.zeigeToast(`„${kopie.titel}“ angelegt`);
+    }
+
+    loescheListe(id) {
+        const liste = this.findeListe(id);
+        if (!liste) return;
+        const anzahl = (liste.punkte || []).length;
+        const frage = anzahl > 0
+            ? `„${liste.titel}“ mit ${anzahl} Punkt(en) wirklich löschen?`
+            : `„${liste.titel}“ wirklich löschen?`;
+        if (!confirm(frage)) return;
+
+        this.daten.listen = this.daten.listen.filter(l => l.id !== id);
+        this.sichere('listen');
+        if (this.aktuelleListeId === id) {
+            this.aktuelleListeId = null;
+            this.zeigeSeite('listen');
+        } else {
+            this.rendereListen();
+        }
+        this.zeigeToast('Liste gelöscht.');
+    }
+
+    // --- Detailansicht ---
+
+    zeigeListeDetail(id) {
+        const liste = this.findeListe(id);
+        if (!liste) {
+            this.zeigeToast('Liste nicht gefunden.');
+            this.zeigeSeite('listen');
+            return;
+        }
+        if (this.aktuelleListeId !== id) this.beendeAuswahl();
+        this.aktuelleListeId = id;
+        this.zeigeSeite('listen-detail');
+        this.rendereListeDetail();
+    }
+
+    rendereListeDetail() {
+        const liste = this.aktuelleListe();
+        if (!liste) return;
+
+        const header = document.getElementById('listeDetailHeader');
+        header.className = 'page-header detail-header farbe-' + liste.farbe;
+        document.getElementById('listeDetailTitel').innerHTML =
+            `<span class="farb-punkt" aria-hidden="true"></span>${this.escapeHtml(liste.titel)}`;
+
+        const punkte = DatenSpeicher.sortierePunkte(liste);
+        const gesamt = punkte.length;
+        const erledigt = punkte.filter(p => p.erledigt).length;
+
+        const kopfTeile = [];
+        const zeitraum = DatenSpeicher.formatZeitraum(liste.von, liste.bis);
+        if (zeitraum) kopfTeile.push(`📆 ${this.escapeHtml(zeitraum)}`);
+        kopfTeile.push(liste.art === 'todos' ? '☑️ Todos' : '📋 Allgemeine Liste');
+        kopfTeile.push(`<span id="listeInfo">${gesamt - erledigt} offen · ${gesamt} gesamt</span>`);
+        document.getElementById('listeDetailKopf').innerHTML = kopfTeile.join('<span class="trenner">·</span>');
+
+        const container = document.getElementById('listeDetailContainer');
+        if (gesamt === 0) {
+            container.innerHTML = `
+                <div class="leer-hinweis">
+                    <div class="leer-icon">📝</div>
+                    <p>Diese Liste ist noch leer.</p>
+                    <p class="klein">Tippe auf „＋ Punkt“, um etwas einzutragen.</p>
+                </div>`;
+        } else {
+            container.innerHTML = punkte.map(p => this.punktZeileHtml(liste, p)).join('');
+        }
+        container.classList.toggle('auswahl-modus', this.auswahlAktiv);
+
+        document.getElementById('listeDetailFuss').innerHTML = erledigt > 0
+            ? `<button type="button" class="btn btn-secondary btn-block" data-aktion="erledigte-aufraeumen">🧹 ${erledigt} erledigte aufräumen</button>`
+            : '';
+
+        this.aktualisiereAuswahlLeiste();
+    }
+
+    punktZeileHtml(liste, punkt) {
+        const istTodo = liste.art === 'todos';
+        const ueberfaellig = istTodo && DatenSpeicher.istUeberfaellig(punkt);
+        const faelligHtml = istTodo && punkt.faellig
+            ? `<span class="punkt-faellig${ueberfaellig ? ' ueberfaellig' : ''}">${this.escapeHtml(DatenSpeicher.formatTagMonat(DatenSpeicher.datumAusKey(punkt.faellig)))}</span>`
+            : '';
+        const ausgewaehlt = this.ausgewaehltePunkte.has(punkt.id);
+
+        return `
+            <div class="produkt-zeile${punkt.erledigt ? ' erledigt' : ''}${ausgewaehlt ? ' ausgewaehlt' : ''}" data-id="${punkt.id}" data-aktion="produkt-toggle" role="button" tabindex="0" aria-pressed="${!!punkt.erledigt}">
+                <span class="checkbox" aria-hidden="true">✓</span>
+                <span class="produkt-name">${this.escapeHtml(punkt.name)}${faelligHtml}</span>
+                <button type="button" class="produkt-aktion" data-aktion="produkt-bearbeiten" title="Bearbeiten" aria-label="Punkt bearbeiten">✏️</button>
+                <button type="button" class="produkt-aktion" data-aktion="produkt-loeschen" title="Löschen" aria-label="Punkt löschen">🗑️</button>
+            </div>`;
+    }
+
+    findePunkt(liste, id) {
+        return (liste.punkte || []).find(p => p.id === id) || null;
+    }
+
+    // Punktuelles Update wie in der Einkaufsliste: Scrollposition bleibt.
+    togglePunkt(id, zeile) {
+        const liste = this.aktuelleListe();
+        const punkt = liste ? this.findePunkt(liste, id) : null;
+        if (!punkt) return;
+
+        punkt.erledigt = !punkt.erledigt;
+        this.sichereListe(liste);
+
+        zeile.classList.toggle('erledigt', punkt.erledigt);
+        zeile.setAttribute('aria-pressed', String(punkt.erledigt));
+
+        const gesamt = liste.punkte.length;
+        const offen = liste.punkte.filter(p => !p.erledigt).length;
+        const info = document.getElementById('listeInfo');
+        if (info) info.textContent = `${offen} offen · ${gesamt} gesamt`;
+
+        // Der Aufräum-Button hängt von der Anzahl erledigter Punkte ab.
+        const erledigt = gesamt - offen;
+        document.getElementById('listeDetailFuss').innerHTML = erledigt > 0
+            ? `<button type="button" class="btn btn-secondary btn-block" data-aktion="erledigte-aufraeumen">🧹 ${erledigt} erledigte aufräumen</button>`
+            : '';
+    }
+
+    loeschePunkt(id) {
+        const liste = this.aktuelleListe();
+        if (!liste) return;
+        liste.punkte = (liste.punkte || []).filter(p => p.id !== id);
+        this.ausgewaehltePunkte.delete(id);
+        this.sichereListe(liste);
+        this.rendereListeDetail();
+    }
+
+    raeumeErledigteAuf() {
+        const liste = this.aktuelleListe();
+        if (!liste) return;
+        const anzahl = liste.punkte.filter(p => p.erledigt).length;
+        if (anzahl === 0) return;
+        if (!confirm(`${anzahl} erledigte Punkte aus „${liste.titel}“ entfernen?`)) return;
+
+        liste.punkte = liste.punkte.filter(p => !p.erledigt);
+        this.sichereListe(liste);
+        this.rendereListeDetail();
+        this.zeigeToast(`${anzahl} Punkte entfernt`);
+    }
+
+    // --- Punkt anlegen / bearbeiten (nutzt das Produkt-Modal im Listen-Kontext) ---
+
+    oeffnePunktModal(punktId) {
+        const liste = this.aktuelleListe();
+        if (!liste) return;
+        const punkt = punktId ? this.findePunkt(liste, punktId) : null;
+        const nameFeld = document.getElementById('produktName');
+
+        this.modalKontext = 'liste';
+        document.getElementById('produktKategorieGruppe').style.display = 'none';
+        document.getElementById('punktFaelligGruppe').style.display = liste.art === 'todos' ? 'block' : 'none';
+        document.getElementById('punktFaellig').value = punkt && punkt.faellig ? punkt.faellig : '';
+        document.getElementById('massenHinweis').textContent =
+            'Aufzählungszeichen und Nummerierungen werden entfernt.';
+
+        document.getElementById('produktId').value = punkt ? punkt.id : '';
+        document.getElementById('produktModalTitel').textContent = punkt ? 'Punkt bearbeiten' : 'Punkt hinzufügen';
+        document.getElementById('btnProduktSpeichern').textContent = punkt ? '💾 Speichern' : 'Hinzufügen';
+        document.getElementById('massenBereich').style.display = punkt ? 'none' : 'block';
+
+        nameFeld.value = punkt ? punkt.name : '';
+        document.getElementById('produktModal').style.display = 'flex';
+        nameFeld.focus();
+        if (punkt) nameFeld.select();
+    }
+
+    speicherePunkt() {
+        const liste = this.aktuelleListe();
+        if (!liste) { this.schliesseProduktModal(); return; }
+
+        const nameFeld = document.getElementById('produktName');
+        const name = nameFeld.value.trim();
+        const faellig = liste.art === 'todos' ? (document.getElementById('punktFaellig').value || null) : null;
+        const id = document.getElementById('produktId').value;
+
+        if (!name) {
+            this.zeigeToast('Bitte einen Namen eingeben.');
+            return;
+        }
+
+        if (id) {
+            const punkt = this.findePunkt(liste, id);
+            if (!punkt) {
+                this.zeigeToast('Punkt nicht gefunden.');
+                this.schliesseProduktModal();
+                return;
+            }
+            punkt.name = name;
+            punkt.faellig = faellig;
+            this.sichereListe(liste);
+            this.schliesseProduktModal();
+            this.rendereListeDetail();
+            this.zeigeToast('Punkt aktualisiert');
+            return;
+        }
+
+        liste.punkte.push(DatenSpeicher.erstellePunkt(name, faellig));
+        this.sichereListe(liste);
+        this.rendereListeDetail();
+
+        // Modal bleibt offen – mehrere Punkte nacheinander sind der Normalfall.
+        nameFeld.value = '';
+        nameFeld.focus();
+        this.zeigeToast(`„${name}“ hinzugefügt`);
+    }
+
+    fuegeMassenPunkteHinzu() {
+        const liste = this.aktuelleListe();
+        if (!liste) { this.schliesseProduktModal(); return; }
+
+        const feld = document.getElementById('produktMassenEingabe');
+        const faellig = liste.art === 'todos' ? (document.getElementById('punktFaellig').value || null) : null;
+        const namen = this.zerlegeZeilen(feld.value);
+
+        if (namen.length === 0) {
+            this.zeigeToast('Keine verwertbaren Zeilen gefunden.');
+            return;
+        }
+
+        namen.forEach((name) => liste.punkte.push(DatenSpeicher.erstellePunkt(name, faellig)));
+        this.sichereListe(liste);
+
+        feld.value = '';
+        this.schliesseProduktModal();
+        this.rendereListeDetail();
+        this.zeigeToast(`${namen.length} Punkte hinzugefügt`);
+    }
+
+    // --- Mehrfachauswahl ---
+
+    starteAuswahl() {
+        if (!this.aktuelleListe()) return;
+        this.auswahlAktiv = true;
+        this.ausgewaehltePunkte.clear();
+        document.getElementById('btnListeAuswahl').setAttribute('aria-pressed', 'true');
+        this.rendereListeDetail();
+    }
+
+    beendeAuswahl() {
+        this.auswahlAktiv = false;
+        this.ausgewaehltePunkte.clear();
+        document.getElementById('btnListeAuswahl').setAttribute('aria-pressed', 'false');
+        document.getElementById('listeDetailContainer').classList.remove('auswahl-modus');
+        document.querySelectorAll('#listeDetailContainer .ausgewaehlt').forEach(z => z.classList.remove('ausgewaehlt'));
+        this.aktualisiereAuswahlLeiste();
+    }
+
+    toggleAuswahl(id, zeile) {
+        if (this.ausgewaehltePunkte.has(id)) this.ausgewaehltePunkte.delete(id);
+        else this.ausgewaehltePunkte.add(id);
+        zeile.classList.toggle('ausgewaehlt', this.ausgewaehltePunkte.has(id));
+        this.aktualisiereAuswahlLeiste();
+    }
+
+    aktualisiereAuswahlLeiste() {
+        const leiste = document.getElementById('auswahlLeiste');
+        const sichtbar = this.auswahlAktiv && this.aktuelleSeite === 'listen-detail';
+        leiste.style.display = sichtbar ? 'flex' : 'none';
+        document.body.classList.toggle('auswahl-offen', sichtbar);
+        if (!sichtbar) return;
+        const n = this.ausgewaehltePunkte.size;
+        document.getElementById('auswahlAnzahl').textContent = `${n} ausgewählt`;
+        document.getElementById('btnAuswahlKopieren').disabled = n === 0;
+        document.getElementById('btnAuswahlNeueListe').disabled = n === 0;
+    }
+
+    // Die markierten Punkte als Vorlage: nur Name und Fälligkeit, keine IDs.
+    // Beim Kopieren entstehen immer neue Punkte, das Original bleibt unberührt.
+    ausgewaehltePunkteAlsVorlage() {
+        const liste = this.aktuelleListe();
+        if (!liste) return [];
+        return DatenSpeicher.sortierePunkte(liste)
+            .filter(p => this.ausgewaehltePunkte.has(p.id))
+            .map(p => ({ name: p.name, faellig: p.faellig || null }));
+    }
+
+    // --- Liste anlegen / bearbeiten ---
+
+    oeffneListeModal(listeId, vorgemerktePunkte) {
+        const liste = listeId ? this.findeListe(listeId) : null;
+        this.vorgemerktePunkte = Array.isArray(vorgemerktePunkte) && vorgemerktePunkte.length > 0 ? vorgemerktePunkte : null;
+
+        document.getElementById('listeForm').reset();
+        document.getElementById('listeId').value = liste ? liste.id : '';
+        document.getElementById('listeModalTitel').textContent = liste ? 'Liste bearbeiten' : 'Neue Liste';
+        document.getElementById('btnListeSpeichern').textContent = liste ? '💾 Speichern' : 'Anlegen';
+
+        const farbe = liste ? liste.farbe : STANDARD_LISTEN_FARBE;
+        const radio = document.querySelector(`#listeFarbe input[value="${farbe}"]`) || document.querySelector('#listeFarbe input');
+        if (radio) radio.checked = true;
+
+        document.getElementById('listeTitel').value = liste ? liste.titel : '';
+        document.getElementById('listeArt').value = liste ? liste.art : 'allgemein';
+        document.getElementById('listeVon').value = liste && liste.von ? liste.von : '';
+        document.getElementById('listeBis').value = liste && liste.bis ? liste.bis : '';
+
+        const hinweis = document.getElementById('listeVorgemerktHinweis');
+        if (this.vorgemerktePunkte) {
+            hinweis.textContent = `${this.vorgemerktePunkte.length} Punkte werden in die neue Liste übernommen.`;
+            hinweis.style.display = 'block';
+        } else {
+            hinweis.style.display = 'none';
+        }
+
+        document.getElementById('listeModal').style.display = 'flex';
+        document.getElementById('listeTitel').focus();
+    }
+
+    schliesseListeModal() {
+        document.getElementById('listeModal').style.display = 'none';
+        this.vorgemerktePunkte = null;
+    }
+
+    speichereListe() {
+        const id = document.getElementById('listeId').value;
+        const titel = document.getElementById('listeTitel').value.trim();
+        const farbeFeld = document.querySelector('#listeFarbe input:checked');
+        const farbe = farbeFeld ? farbeFeld.value : STANDARD_LISTEN_FARBE;
+        const art = document.getElementById('listeArt').value;
+        const von = document.getElementById('listeVon').value || null;
+        const bis = document.getElementById('listeBis').value || null;
+
+        if (!titel) {
+            this.zeigeToast('Bitte einen Titel eingeben.');
+            return;
+        }
+        if (von && bis && bis < von) {
+            this.zeigeToast('Das Ende des Zeitraums liegt vor dem Anfang.');
+            return;
+        }
+
+        if (id) {
+            const liste = this.findeListe(id);
+            if (!liste) {
+                this.zeigeToast('Liste nicht gefunden.');
+                this.schliesseListeModal();
+                return;
+            }
+            Object.assign(liste, { titel, farbe, art, von, bis });
+            this.sichereListe(liste);
+            this.schliesseListeModal();
+            if (this.aktuelleSeite === 'listen-detail') this.rendereListeDetail(); else this.rendereListen();
+            this.zeigeToast('Liste aktualisiert');
+            return;
+        }
+
+        const punkte = (this.vorgemerktePunkte || []).map(v => DatenSpeicher.erstellePunkt(v.name, art === 'todos' ? v.faellig : null));
+        const liste = DatenSpeicher.erstelleListe({ titel, farbe, art, von, bis, punkte });
+        this.daten.listen.unshift(liste);
+        this.sichere('listen');
+        this.schliesseListeModal();
+        this.beendeAuswahl();
+        this.zeigeToast(punkte.length > 0 ? `„${titel}“ mit ${punkte.length} Punkten angelegt` : `„${titel}“ angelegt`);
+        this.zeigeListeDetail(liste.id);
+    }
+
+    // --- Ziel wählen: Punkte in eine andere Liste oder die Einkaufsliste kopieren ---
+
+    oeffneZielModal(punkte, titel, quelleListeId) {
+        this.zielPunkte = punkte;
+        document.getElementById('zielModalTitel').textContent = titel || 'Kopieren nach …';
+
+        const listen = this.daten.listen.filter(l => l.id !== quelleListeId);
+        const eintraege = listen.map(l => `
+            <button type="button" class="ziel-eintrag farbe-${this.escapeHtml(l.farbe)}" data-ziel="${l.id}">
+                <span class="farb-punkt" aria-hidden="true"></span>
+                <span class="ziel-titel">${this.escapeHtml(l.titel)}</span>
+                <span class="ziel-anzahl">${(l.punkte || []).length}</span>
+            </button>`);
+
+        eintraege.push(`
+            <button type="button" class="ziel-eintrag ziel-einkauf" data-ziel="einkaufsliste">
+                <span class="ziel-icon" aria-hidden="true">🛒</span>
+                <span class="ziel-titel">Einkaufsliste</span>
+                <span class="ziel-anzahl">${this.daten.einkaufsliste.length}</span>
+            </button>`);
+
+        eintraege.push(`
+            <button type="button" class="ziel-eintrag ziel-neu" data-ziel="neu">
+                <span class="ziel-icon" aria-hidden="true">✨</span>
+                <span class="ziel-titel">Neue Liste daraus</span>
+            </button>`);
+
+        document.getElementById('zielListe').innerHTML = eintraege.join('');
+        document.getElementById('zielModal').style.display = 'flex';
+    }
+
+    schliesseZielModal() {
+        document.getElementById('zielModal').style.display = 'none';
+    }
+
+    waehleZiel(ziel) {
+        const punkte = this.zielPunkte || [];
+        this.schliesseZielModal();
+        if (punkte.length === 0) return;
+
+        if (ziel === 'neu') {
+            this.oeffneListeModal(null, punkte);
+            return;
+        }
+
+        if (ziel === 'einkaufsliste') {
+            punkte.forEach(p => this.daten.einkaufsliste.push(this.erstelleProdukt(p.name, STANDARD_KATEGORIE)));
+            this.sichere('einkaufsliste');
+            if (this.aktuelleSeite === 'einkaufsliste') this.rendereEinkaufsliste();
+            this.zeigeToast(`${punkte.length} Punkte auf die Einkaufsliste kopiert`);
+            this.beendeAuswahl();
+            return;
+        }
+
+        const liste = this.findeListe(ziel);
+        if (!liste) {
+            this.zeigeToast('Zielliste nicht gefunden.');
+            return;
+        }
+        punkte.forEach(p => liste.punkte.push(DatenSpeicher.erstellePunkt(p.name, liste.art === 'todos' ? p.faellig : null)));
+        this.sichereListe(liste);
+        this.zeigeToast(`${punkte.length} Punkte nach „${liste.titel}“ kopiert`);
+        this.beendeAuswahl();
+    }
+
+    // =====================================================================
+    // Datensicherung – Export, Import, Schutz vor veralteter App
+    // =====================================================================
+
+    bindDaten() {
+        document.getElementById('btnDatenOeffnen').addEventListener('click', () => this.oeffneDatenModal());
+        document.getElementById('btnDatenSchliessen').addEventListener('click', () => this.schliesseDatenModal());
+        document.getElementById('datenModal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) this.schliesseDatenModal();
+        });
+
+        document.getElementById('btnDatenExport').addEventListener('click', () => this.exportiereDaten());
+
+        document.getElementById('datenImportDatei').addEventListener('change', (e) => {
+            const datei = e.target.files && e.target.files[0];
+            if (datei) this.liesImportDatei(datei);
+            e.target.value = ''; // dieselbe Datei darf erneut gewählt werden
+        });
+
+        document.getElementById('btnImportZusammenfuehren').addEventListener('click', () => this.importiereDaten('zusammenfuehren'));
+        document.getElementById('btnImportErsetzen').addEventListener('click', () => this.importiereDaten('ersetzen'));
+        document.getElementById('btnImportAbbrechen').addEventListener('click', () => this.zeigeImportVorschau(null));
+
+        // Abwärtsschutz: Banner, sobald Daten einer neueren App auftauchen.
+        document.getElementById('btnNeuLaden').addEventListener('click', () => window.location.reload());
+        DatenSpeicher.beiVeraltet((info) => {
+            document.getElementById('veraltetText').textContent =
+                `Die Daten stammen von einer neueren Version der App (Version ${info.version}, diese kennt ${info.eigene}). ` +
+                'Änderungen werden nicht gespeichert, bis die App neu geladen ist.';
+            document.getElementById('veraltetBanner').style.display = 'flex';
+        });
+    }
+
+    oeffneDatenModal() {
+        this.zeigeImportVorschau(null);
+        const zaehler = BEREICHE.map((b) => {
+            const label = { rezepte: 'Rezepte', wochenplan: 'Wochen', einkaufsliste: 'Produkte', listen: 'Listen' }[b] || b;
+            return `<div class="daten-kachel"><div class="daten-zahl">${DatenSpeicher.zaehle(b, this.daten[b])}</div><div class="daten-label">${label}</div></div>`;
+        }).join('');
+        document.getElementById('datenUebersicht').innerHTML =
+            zaehler + `<div class="daten-version">Datenformat Version ${SCHEMA_VERSION}</div>`;
+        document.getElementById('datenModal').style.display = 'flex';
+    }
+
+    schliesseDatenModal() {
+        document.getElementById('datenModal').style.display = 'none';
+        this.zeigeImportVorschau(null);
+    }
+
+    exportiereDaten() {
+        const paket = DatenSpeicher.exportiereAlles();
+        const blob = new Blob([JSON.stringify(paket, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = DatenSpeicher.exportDateiname();
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        this.zeigeToast('Sicherung erstellt: ' + a.download);
+    }
+
+    liesImportDatei(datei) {
+        const leser = new FileReader();
+        leser.onerror = () => this.zeigeToast('Die Datei konnte nicht gelesen werden.');
+        leser.onload = () => {
+            try {
+                const paket = JSON.parse(String(leser.result));
+                this.importVorbereitet = DatenSpeicher.pruefeImport(paket);
+                this.zeigeImportVorschau(this.importVorbereitet, paket.exportiert);
+            } catch (e) {
+                this.importVorbereitet = null;
+                this.zeigeToast(e && e.message ? e.message : 'Die Datei ist keine gültige Sicherung.');
+            }
+        };
+        leser.readAsText(datei);
+    }
+
+    zeigeImportVorschau(gepruefte, exportiert) {
+        const vorschau = document.getElementById('datenVorschau');
+        const aktionen = document.getElementById('datenAktionen');
+        if (!gepruefte) {
+            this.importVorbereitet = null;
+            vorschau.style.display = 'none';
+            aktionen.style.display = 'block';
+            return;
+        }
+        const labels = { rezepte: 'Rezepte', wochenplan: 'Wochen', einkaufsliste: 'Produkte', listen: 'Listen' };
+        const teile = Object.keys(gepruefte.bereiche).map(b => `${DatenSpeicher.zaehle(b, gepruefte.bereiche[b])} ${labels[b] || b}`);
+        const datum = exportiert ? new Date(exportiert) : null;
+        const datumText = datum && !isNaN(datum) ? ` vom ${DatenSpeicher.formatKurz(datum)}` : '';
+        const versionText = gepruefte.version < SCHEMA_VERSION ? ` Datenformat Version ${gepruefte.version}, wird beim Laden auf ${SCHEMA_VERSION} gehoben.` : '';
+        document.getElementById('datenVorschauText').innerHTML =
+            `<strong>Sicherung${this.escapeHtml(datumText)}</strong><br>${this.escapeHtml(teile.join(' · '))}${this.escapeHtml(versionText)}`;
+        aktionen.style.display = 'none';
+        vorschau.style.display = 'block';
+    }
+
+    importiereDaten(modus) {
+        if (!this.importVorbereitet) return;
+        if (modus === 'ersetzen' && !confirm('Wirklich alle vorhandenen Daten durch die Sicherung ersetzen?\nDas gilt auch für alle verbundenen Geräte.')) return;
+
+        try {
+            const ergebnis = DatenSpeicher.importiere(this.importVorbereitet, modus);
+            this.daten = DatenSpeicher.ladeAlle();
+            this.schliesseDatenModal();
+            this.aktuellesRezeptId = null;
+            this.aktuelleListeId = null;
+            this.zeigeSeite('dashboard');
+            const summe = Object.values(ergebnis).reduce((a, b) => a + b, 0);
+            this.zeigeToast(modus === 'ersetzen' ? `Sicherung geladen – ${summe} Einträge` : `Sicherung ergänzt – jetzt ${summe} Einträge`);
+        } catch (e) {
+            this.zeigeToast(e && e.message ? e.message : 'Import fehlgeschlagen.');
+        }
+    }
+
+    // =====================================================================
     // Hilfsfunktionen
     // =====================================================================
 
@@ -1012,8 +1904,24 @@ class MjamOrgaApp {
         if (bereich === 'rezepte') ok = DatenSpeicher.speichereRezepte(this.daten.rezepte);
         if (bereich === 'wochenplan') ok = DatenSpeicher.speichereWochenplan(this.daten.wochenplan);
         if (bereich === 'einkaufsliste') ok = DatenSpeicher.speichereEinkaufsliste(this.daten.einkaufsliste);
-        if (!ok) this.zeigeToast('Speichern fehlgeschlagen – Speicher voll?');
+        if (bereich === 'listen') ok = DatenSpeicher.speichereListen(this.daten.listen);
+        if (!ok) {
+            this.zeigeToast(DatenSpeicher.veraltet
+                ? 'Nicht gespeichert: Die App ist veraltet, bitte neu laden.'
+                : 'Speichern fehlgeschlagen – Speicher voll?');
+        }
         return ok;
+    }
+
+    // Bittet den Browser, die Website-Daten nicht bei Platzmangel oder nach
+    // längerer Nichtbenutzung zu räumen (Safari löscht sonst nach 7 Tagen).
+    // Wird still abgelehnt oder ignoriert, wenn der Browser es nicht kann.
+    bittePersistentenSpeicher() {
+        try {
+            if (navigator.storage && navigator.storage.persist) {
+                navigator.storage.persist().catch(() => {});
+            }
+        } catch (e) { /* nicht verfügbar */ }
     }
 
     zeigeToast(text) {

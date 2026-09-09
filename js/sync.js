@@ -8,8 +8,10 @@
 //   haushalte/{code}/daten/rezepte        { wert: [...],  geaendert, von }
 //   haushalte/{code}/daten/wochenplan     { wert: {...},  geaendert, von }
 //   haushalte/{code}/daten/einkaufsliste  { wert: [...],  geaendert, von }
+//   haushalte/{code}/daten/listen         { wert: [...],  geaendert, von }
 //
-// Ein Dokument je Bereich, genau wie die drei localStorage-Schlüssel. Wer den
+// Jedes Dokument trägt zusätzlich "version" (Schema-Version, siehe storage.js).
+// Ein Dokument je Bereich, genau wie die localStorage-Schlüssel. Wer den
 // Haushaltscode kennt, liest und schreibt mit – das ist das Zugriffsmodell.
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
@@ -114,7 +116,9 @@ class FirestoreSync {
     async gleicheAb(bereich) {
         const lokal = DatenSpeicher.ladeBereich(bereich);
         const snap = await getDoc(this.ref(bereich));
-        const entfernt = snap.exists() ? snap.data().wert : null;
+        const gelesen = this.leseDokument(bereich, snap);
+        if (gelesen.veraltet) return; // neuere App hat geschrieben – nichts anfassen
+        const entfernt = gelesen.wert;
 
         if (!DatenSpeicher.istGueltig(bereich, entfernt)) {
             // Noch nichts im Haushalt: lokalen Stand hochladen, falls vorhanden.
@@ -124,10 +128,33 @@ class FirestoreSync {
 
         const vereint = DatenSpeicher.fuehreZusammen(bereich, lokal, entfernt);
         DatenSpeicher.uebernimmExtern(bereich, vereint);
-        // Hat das Vereinen etwas Lokales beigesteuert, kennt der Haushalt es noch nicht.
-        if (JSON.stringify(vereint) !== JSON.stringify(entfernt)) {
+        // Schreiben, wenn das Vereinen etwas Lokales beigesteuert hat oder das
+        // Dokument noch eine ältere Schema-Version trägt.
+        if (gelesen.version < SCHEMA_VERSION || JSON.stringify(vereint) !== JSON.stringify(entfernt)) {
             await this.schreibe(bereich, vereint);
         }
+    }
+
+    // Liest wert + Schema-Version aus einem Dokument und hebt ältere Stände an.
+    // Trägt das Dokument eine neuere Version als diese App kennt, wird die App
+    // als veraltet markiert und das Dokument nicht übernommen.
+    leseDokument(bereich, snap) {
+        if (!snap.exists()) return { wert: null, version: SCHEMA_VERSION, veraltet: false };
+        const data = snap.data() || {};
+        const version = Number.isInteger(data.version) ? data.version : 1;
+        if (version > SCHEMA_VERSION) {
+            DatenSpeicher.markiereVeraltet('firestore', version);
+            return { wert: null, version, veraltet: true };
+        }
+        let wert = data.wert;
+        if (version < SCHEMA_VERSION && DatenSpeicher.istGueltig(bereich, wert)) {
+            try {
+                wert = DatenSpeicher.migriere(bereich, wert, version);
+            } catch (e) {
+                return { wert: null, version, veraltet: false };
+            }
+        }
+        return { wert, version, veraltet: false };
     }
 
     hoere(bereich) {
@@ -136,8 +163,12 @@ class FirestoreSync {
             // Snapshot zurück – die sind lokal längst bekannt.
             if (snap.metadata.hasPendingWrites) return;
             if (!snap.exists()) return;
-            const wert = snap.data().wert;
-            if (DatenSpeicher.istGueltig(bereich, wert)) DatenSpeicher.uebernimmExtern(bereich, wert);
+            const gelesen = this.leseDokument(bereich, snap);
+            if (gelesen.veraltet) {
+                this.melde('fehler', 'App veraltet – bitte neu laden');
+                return;
+            }
+            if (DatenSpeicher.istGueltig(bereich, gelesen.wert)) DatenSpeicher.uebernimmExtern(bereich, gelesen.wert);
             if (!snap.metadata.fromCache) this.meldeVerbunden();
         }, (e) => {
             console.error('Sync-Listener für ' + bereich + ':', e);
@@ -175,10 +206,12 @@ class FirestoreSync {
 
     schreibe(bereich, wert) {
         if (!this.haushalt) return Promise.resolve();
+        if (DatenSpeicher.veraltet) return Promise.resolve(); // nie einen neueren Stand überschreiben
         // JSON-Umweg entfernt undefined-Felder, die Firestore ablehnt.
         const sauber = JSON.parse(JSON.stringify(wert));
         return setDoc(this.ref(bereich), {
             wert: sauber,
+            version: SCHEMA_VERSION,
             geaendert: serverTimestamp(),
             von: this.uid || null,
         });

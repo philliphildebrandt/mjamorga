@@ -44,13 +44,20 @@ Die Trennung `storage.js` / `app.js` ist bewusst: `storage.js` kennt nur Daten,
 
 ### Persistenz
 
-Drei getrennte `localStorage`-Schlüssel, je Modul einer:
+Vier getrennte `localStorage`-Schlüssel, je Modul einer:
 
 | Schlüssel | Inhalt | Typ |
 |---|---|---|
 | `mjamorga_rezepte` | alle Rezepte | Array |
 | `mjamorga_wochenplan` | alle Wochen | Objekt, Schlüssel = Montagsdatum |
 | `mjamorga_einkaufsliste` | alle Produkte | Array |
+| `mjamorga_listen` | alle freien Listen mit ihren Punkten | Array |
+
+Jeder Schlüssel trägt eine Hülle `{ "version": N, "daten": ... }` mit der
+Schema-Version seines Aufbaus. Daten ohne Hülle gelten als Version 1 und werden
+beim Laden durch die Migrationskette gehoben, siehe
+[09-datensicherung.md](09-datensicherung.md). Im Speicher der App liegen die
+rohen Arrays und Objekte, die Hülle existiert nur an der Ablagegrenze.
 
 Getrennte Schlüssel statt eines großen Objekts, damit ein Schreibvorgang in einem
 Modul die anderen Module nicht anfasst und ein defekter Eintrag nicht die
@@ -127,9 +134,13 @@ nicht in der Vorwoche landet.
 
 Alle Bereiche liegen als `<section class="page">` gleichzeitig im DOM; sichtbar
 ist immer nur die Section mit der Klasse `active`. `zeigeSeite(name)` schaltet um
-und stößt das Rendering des Zielbereichs an. Die beiden Unterseiten
-*Rezept-Detail* und *Rezept-Formular* sind ebenfalls solche Sections, erscheinen
-aber nicht in der Bottom-Navigation.
+und stößt das Rendering des Zielbereichs an. Unterseiten wie *Rezept-Detail*,
+*Rezept-Formular* und *Listen-Detail* sind ebenfalls solche Sections, erscheinen
+aber nicht in der Navigation.
+
+Die Bottom-Navigation hat **zwei Ebenen**: vier Gruppen, darüber die Module als
+Blasen. Die Zuordnung Seite → Gruppe steht in `SEITEN_GRUPPE` in `app.js`,
+Details in [08-navigation.md](08-navigation.md).
 
 ### Rendering
 
@@ -167,13 +178,11 @@ IndexedDB der richtige Schritt. Bis dahin sollte ein fehlgeschlagenes Speichern
 (`QuotaExceededError`) dem Benutzer als Toast gemeldet werden, statt still zu
 scheitern.
 
-**Export / Import als JSON.** Ein Button „Daten sichern“ (Download aller drei
-Schlüssel als eine `.json`) und „Daten laden“ ist mit wenigen Zeilen umsetzbar und
-löst das größte Risiko der reinen Client-Speicherung: geleerter Browser-Cache =
-Datenverlust. Das ist die wichtigste Ergänzung vor jeder Komfortfunktion.
+**Export / Import als JSON** – *umgesetzt*, siehe
+[09-datensicherung.md](09-datensicherung.md).
 
-**Schema-Version mitschreiben.** Ein Feld `version` je Schlüssel erlaubt später
-Migrationen (z. B. ein Feld pro Tag → drei Mahlzeiten), ohne Altdaten zu verlieren.
+**Schema-Version mitschreiben** – *umgesetzt*, inklusive Migrationskette und
+Abwärtsschutz, siehe [09-datensicherung.md](09-datensicherung.md).
 
 **Datenzugriff über kleine Helfer bündeln.** `findeRezept(id)` existiert bereits;
 analog sinnvoll: `getTag(wochenKey, index)`, `setzeTag(...)`. Das hält die
