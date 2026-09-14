@@ -28,6 +28,7 @@ const KATEGORIEN = [
     'Obst & Gemüse',
     'Fleisch',
     'Milchprodukte',
+    'Brot- und Teigwaren',
     'Getränke',
     'Tiefkühl',
     'Vorräte',
