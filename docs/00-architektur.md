@@ -46,7 +46,7 @@ Die Trennung `storage.js` / `app.js` ist bewusst: `storage.js` kennt nur Daten,
 
 ### Persistenz
 
-Vier getrennte `localStorage`-Schlüssel, je Modul einer:
+Fünf getrennte `localStorage`-Schlüssel:
 
 | Schlüssel | Inhalt | Typ |
 |---|---|---|
@@ -54,6 +54,7 @@ Vier getrennte `localStorage`-Schlüssel, je Modul einer:
 | `mjamorga_wochenplan` | alle Wochen | Objekt, Schlüssel = Montagsdatum |
 | `mjamorga_einkaufsliste` | alle Produkte | Array |
 | `mjamorga_listen` | alle freien Listen mit ihren Punkten | Array |
+| `mjamorga_kategorien` | selbst angelegte Kategorien (Pool für Einkaufsliste und Listen) | Array |
 
 Jeder Schlüssel trägt eine Hülle `{ "version": N, "daten": ... }` mit der
 Schema-Version seines Aufbaus. Daten ohne Hülle gelten als Version 1 und werden

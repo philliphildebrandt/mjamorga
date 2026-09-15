@@ -27,7 +27,8 @@ Dashboard → 💾 → **Sicherung herunterladen**. Es entsteht eine Datei
     "rezepte": [ ... ],
     "wochenplan": { ... },
     "einkaufsliste": [ ... ],
-    "listen": [ ... ]
+    "listen": [ ... ],
+    "kategorien": [ ... ]
   }
 }
 ```
@@ -113,6 +114,14 @@ ist: Rezepte ohne `zutaten` bekommen ein leeres Array, Produkte mit unbekannter
 Kategorie die Standardkategorie, Wochen alle sieben Tage, Listen eine gültige
 Farbe und Art. Einträge ohne `id` fallen weg. Ab Version 2 darf sich der Code
 auf die Felder verlassen, statt überall `|| []` zu schreiben.
+
+**Version 3 konkret.** Mit dem Kategorienpool bekommt jeder Listenpunkt ein Feld
+`kategorie` (`null` = ohne Kategorie). Produkte der Einkaufsliste dürfen ab jetzt
+selbst angelegte Kategorien tragen. Ihr Aufbau bleibt gleich, eine App der
+Version 2 würde sie beim Bearbeiten aber auf „Sonstiges" zurücksetzen. Deshalb
+greift auf alten Geräten der Abwärtsschutz. Neu ist außerdem der Bereich
+`kategorien` (eigene Kategorien als `{ id, name, erstellt }`). Er braucht keine
+Migration, weil es ihn vorher nicht gab.
 
 ### Abwärtsschutz
 

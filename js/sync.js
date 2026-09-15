@@ -9,6 +9,7 @@
 //   haushalte/{code}/daten/wochenplan     { wert: {...},  geaendert, von }
 //   haushalte/{code}/daten/einkaufsliste  { wert: [...],  geaendert, von }
 //   haushalte/{code}/daten/listen         { wert: [...],  geaendert, von }
+//   haushalte/{code}/daten/kategorien     { wert: [...],  geaendert, von }
 //
 // Jedes Dokument trägt zusätzlich "version" (Schema-Version, siehe storage.js).
 // Ein Dokument je Bereich, genau wie die localStorage-Schlüssel. Wer den

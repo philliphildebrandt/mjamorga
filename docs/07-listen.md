@@ -3,7 +3,7 @@
 Frei anlegbare Listen neben der Einkaufsliste: Packliste, Putzplan, Baumarkt,
 Geschenkideen, Aufgaben fürs Wochenende. Jede Liste hat Titel, Farbe, Art und
 optional einen Zeitraum. Die Einkaufsliste bleibt ein eigenes Modul mit eigenem
-Speicherschlüssel und eigenen Kategorien.
+Speicherschlüssel. Den Kategorienpool teilen sich beide.
 
 ---
 
@@ -31,7 +31,11 @@ Speicherschlüssel und eigenen Kategorien.
    mehrere Punkte aus kopiertem Text einfügen
 9. **Mehrfachauswahl**: Punkte markieren, dann **Kopieren nach …** (andere Liste
    oder Einkaufsliste) oder **Neue Liste daraus**
-10. **Erledigte aufräumen** am Fuß der Liste, sobald etwas abgehakt ist
+10. **Erledigte löschen** oben rechts im Kopfbereich, sobald etwas abgehakt ist
+11. **Kategorie je Punkt**, optional, aus dem gemeinsamen Kategorienpool. Neue
+    Kategorien entstehen über das ＋ neben der Auswahl. Sobald ein Punkt eine
+    Kategorie hat, wird die Liste danach gruppiert. „Ohne Kategorie" steht
+    zuletzt. Eine Liste ganz ohne Kategorien bleibt flach wie bisher.
 
 **Liste anlegen / bearbeiten** (Modal)
 
@@ -76,6 +80,7 @@ Schlüssel `mjamorga_listen`, unabhängig von `mjamorga_einkaufsliste`:
         "name": "Regenjacke",
         "erledigt": false,
         "faellig": null,
+        "kategorie": "Kleidung",
         "erstellt": "2026-09-09T18:05:00.000Z"
       }
     ],
@@ -89,9 +94,11 @@ Schlüssel `mjamorga_listen`, unabhängig von `mjamorga_einkaufsliste`:
 Querverweise. Das Löschen einer Liste ist damit eine Operation, und das Kopieren
 erzeugt echte neue Punkte statt Verweise.
 
-**Der Punkt ist feldgleich zum Produkt der Einkaufsliste**, ohne `kategorie`,
-mit `faellig`. Beim Kopieren auf die Einkaufsliste bekommt er die
-Standardkategorie, beim Kopieren in eine allgemeine Liste fällt die Fälligkeit weg.
+**Der Punkt ist feldgleich zum Produkt der Einkaufsliste**, zusätzlich mit
+`faellig`. `kategorie` ist `null`, solange keine gewählt ist (seit Schema-Version 3).
+Beim Kopieren bleibt die Kategorie erhalten. Auf der Einkaufsliste wird aus
+„ohne Kategorie" die Standardkategorie. Beim Kopieren in eine allgemeine Liste
+fällt die Fälligkeit weg.
 
 **Zeitraum als `YYYY-MM-DD`-Strings**, wie der Wochenschlüssel des Wochenplans.
 Rein informativ, blendet nichts aus und löscht nichts.
@@ -122,7 +129,8 @@ alle Zutaten eines Rezepts wahlweise auf eine Liste oder die Einkaufsliste.
 ### Gemeinsame Bausteine mit der Einkaufsliste
 
 Das **Produkt-Modal wird geteilt**. `modalKontext` (`einkauf` oder `liste`)
-entscheidet, welche Felder sichtbar sind (Kategorie oder Fälligkeit) und wohin
+entscheidet, ob die Kategorie-Auswahl „Ohne Kategorie" anbietet, ob die
+Fälligkeit sichtbar ist und wohin
 `speichereProdukt()` und `fuegeMassenProdukteHinzu()` verzweigen. Die
 Zeilendarstellung (`produkt-zeile`, Checkbox, Aktionen) und `zerlegeZeilen()`
 sind dieselben. Damit driften die beiden Oberflächen nicht auseinander.

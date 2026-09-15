@@ -244,14 +244,11 @@
                 </header>
                 <div class="content-area">
                     <div class="liste-detail-kopf" id="listeDetailKopf">
-                        <!-- Dynamisch gefüllt: Zeitraum, Fortschritt -->
+                        <!-- Dynamisch gefüllt: Zeitraum, Fortschritt, Erledigte löschen -->
                     </div>
                     <button class="btn btn-primary btn-block" id="btnPunktHinzufuegen" aria-label="Punkt hinzufügen">＋ Punkt</button>
                     <div id="listeDetailContainer" class="einkaufsliste-container">
                         <!-- Dynamisch gefüllt -->
-                    </div>
-                    <div id="listeDetailFuss" class="liste-detail-fuss">
-                        <!-- Dynamisch gefüllt: Erledigte aufräumen -->
                     </div>
                 </div>
             </section>
@@ -273,9 +270,12 @@
                         </div>
                         <div class="form-group" id="produktKategorieGruppe">
                             <label for="produktKategorie">Kategorie</label>
-                            <select id="produktKategorie">
-                                <!-- Dynamisch gefüllt -->
-                            </select>
+                            <div class="auswahl-mit-knopf">
+                                <select id="produktKategorie">
+                                    <!-- Dynamisch gefüllt -->
+                                </select>
+                                <button type="button" class="btn btn-secondary btn-plus" id="btnKategorieNeu" title="Neue Kategorie" aria-label="Neue Kategorie anlegen">＋</button>
+                            </div>
                         </div>
                         <div class="form-group" id="punktFaelligGruppe" style="display:none;">
                             <label for="punktFaellig">Fällig am (optional)</label>
@@ -293,6 +293,35 @@
                             <button type="button" class="btn btn-secondary btn-block" id="btnMassenEinfuegen">📋 Alle Zeilen als Produkte einfügen</button>
                             <small class="form-hint" id="massenHinweis">Nutzt die oben gewählte Kategorie. Aufzählungszeichen und Nummerierungen werden entfernt.</small>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: Neue Kategorie (liegt über dem Produkt-Modal) -->
+        <div class="modal-overlay modal-oben" id="kategorieModal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="kategorieModalTitel">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3 id="kategorieModalTitel">Neue Kategorie</h3>
+                    <button class="btn btn-close" id="btnKategorieModalSchliessen" aria-label="Schließen">✕</button>
+                </div>
+                <div class="modal-body">
+                    <form id="kategorieForm">
+                        <div class="form-group">
+                            <label for="kategorieName" id="kategorieNameLabel">Name</label>
+                            <input type="text" id="kategorieName" maxlength="40" placeholder="z.B. Drogerie" autocomplete="off" enterkeyhint="done" />
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block" id="btnKategorieSpeichern">💾 Speichern</button>
+                        <button type="button" class="btn btn-secondary btn-block" id="btnKategorieUmbenennenAbbrechen" style="display:none;">Abbrechen</button>
+                    </form>
+
+                    <!-- Eigene Kategorien: umbenennen und löschen -->
+                    <div id="kategorieVerwaltung" class="kategorie-verwaltung" style="display:none;">
+                        <h4 class="block-titel">Eigene Kategorien</h4>
+                        <div id="kategorieListe" class="kategorie-liste">
+                            <!-- Dynamisch gefüllt -->
+                        </div>
+                        <small class="form-hint">Die eingebauten Kategorien lassen sich nicht ändern.</small>
                     </div>
                 </div>
             </div>

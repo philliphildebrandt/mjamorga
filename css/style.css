@@ -641,8 +641,86 @@ body {
 .listen-info {
     color: var(--text-secondary);
     font-size: 0.8rem;
+}
+
+.listen-info-zeile {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 32px;
     padding: 0 4px 4px;
 }
+
+/* Erledigte löschen: oben neben dem Zähler, ohne Scrollen erreichbar */
+.aufraeumen-platz { margin-left: auto; }
+.aufraeumen-knopf {
+    padding: 5px 12px;
+    font-size: 0.8rem;
+}
+
+/* Kategorie-Auswahl mit ＋ daneben */
+.auswahl-mit-knopf {
+    display: flex;
+    gap: 8px;
+}
+.auswahl-mit-knopf select {
+    flex: 1;
+    min-width: 0;
+}
+.btn-plus {
+    flex-shrink: 0;
+    width: 48px;
+    padding: 0;
+    font-size: 1.3rem;
+}
+
+/* Popup über einem anderen Modal */
+.modal-overlay.modal-oben { z-index: 210; }
+
+/* Kategorie-Popup: eigene Kategorien umbenennen und löschen */
+.kategorie-verwaltung {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+}
+.kategorie-liste {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+.kategorie-eintrag {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px 6px 12px;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    border: 1px solid transparent;
+}
+.kategorie-eintrag.aktiv {
+    border-color: var(--primary);
+    background: var(--primary-light);
+}
+.kategorie-eintrag-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.95rem;
+    overflow-wrap: anywhere;
+}
+.kategorie-eintrag .produkt-aktion {
+    background: none;
+    border: none;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 8px 6px;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+}
+.kategorie-eintrag .produkt-aktion:hover { background: var(--border); }
 
 .kategorie-gruppe {
     display: flex;
@@ -1301,13 +1379,12 @@ body {
     padding: 0 4px 12px;
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 4px;
 }
 .liste-detail-kopf .trenner { padding: 0 4px; color: var(--text-light); }
 
 #btnPunktHinzufuegen { margin-bottom: 12px; }
-
-.liste-detail-fuss { margin-top: 14px; }
 
 .punkt-faellig {
     display: inline-block;

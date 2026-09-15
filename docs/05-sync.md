@@ -33,11 +33,12 @@ Jedes Gerät bekommt damit eine feste, anonyme Nutzer-ID. Niemand muss ein Konto
 2. Den kompletten Inhalt von [`firestore.rules`](../firestore.rules) hineinkopieren.
 3. **Veröffentlichen**.
 
-Kommt später ein Bereich dazu (so wie `listen` mit dem Listen-Modul) oder ein
+Kommt später ein Bereich dazu (so wie `listen` mit dem Listen-Modul oder
+`kategorien` mit dem Kategorienpool) oder ein
 Feld im Dokument (so wie `version`), muss die Datei erneut eingespielt werden. Andernfalls lehnt Firestore Schreibvorgänge auf
 den neuen Bereich ab, und der Statuspunkt wird rot mit „Zugriff verweigert".
 
-Die Regeln lassen nur angemeldete Geräte an die vier Dokumente eines Haushalts,
+Die Regeln lassen nur angemeldete Geräte an die fünf Dokumente eines Haushalts,
 und nur mit exakt den Feldern, die die App schreibt.
 
 ### 4. Web-App registrieren und Konfiguration eintragen
@@ -140,7 +141,7 @@ Dokument pro Produkt, das ist bei Bedarf ein überschaubarer Umbau in `sync.js`.
 hundert Rezepte passen. Bilder werden nur als URL gespeichert, nie als Datei.
 
 **Kontingent.** Spark-Tarif: 50.000 Lesevorgänge, 20.000 Schreibvorgänge pro Tag.
-Ein App-Start liest vier Dokumente, jede Änderung ist ein Schreibvorgang. Eine
+Ein App-Start liest fünf Dokumente, jede Änderung ist ein Schreibvorgang. Eine
 Familie liegt weit unter einem Prozent davon. Wird das Kontingent erreicht, lehnt
 Firestore bis zum nächsten Tag ab; es entstehen keine Kosten.
 

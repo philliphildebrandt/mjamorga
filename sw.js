@@ -11,7 +11,7 @@
 // Bei jeder Veröffentlichung CACHE_VERSION erhöhen: Der neue Worker legt einen
 // neuen Cache an, räumt den alten weg und meldet der Seite "neue Version".
 
-const CACHE_VERSION = 'mjamorga-v1';
+const CACHE_VERSION = 'mjamorga-v2';
 
 // Die App-Hülle. Relative Pfade, damit es unter /mjamorga/ auf GitHub Pages
 // genauso läuft wie lokal unter /.

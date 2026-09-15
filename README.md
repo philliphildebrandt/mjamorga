@@ -49,8 +49,8 @@ docs/               Konzept je Modul
 
 ## Daten
 
-Alles liegt im `localStorage` des Browsers, unter vier Schlüsseln:
-`mjamorga_rezepte`, `mjamorga_wochenplan`, `mjamorga_einkaufsliste`, `mjamorga_listen`.
-Mit eingerichtetem Live-Sync werden dieselben vier Bereiche zusätzlich in Firestore gehalten.
+Alles liegt im `localStorage` des Browsers, unter fünf Schlüsseln:
+`mjamorga_rezepte`, `mjamorga_wochenplan`, `mjamorga_einkaufsliste`, `mjamorga_listen`, `mjamorga_kategorien`.
+Mit eingerichtetem Live-Sync werden dieselben fünf Bereiche zusätzlich in Firestore gehalten.
 Jeder Bereich trägt eine Schema-Version; ältere Daten werden beim Laden migriert.
 Über 💾 auf dem Dashboard lassen sich alle Daten als JSON sichern und wieder laden.
