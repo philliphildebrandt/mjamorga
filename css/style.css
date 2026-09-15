@@ -1518,3 +1518,92 @@ body.auswahl-offen .page-container { padding-bottom: calc(var(--nav-height) + 90
     margin-bottom: 12px;
     line-height: 1.6;
 }
+
+/* === Startanimation === */
+
+.splash {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    background: var(--primary);
+    transition: opacity 0.35s ease;
+}
+.splash.aus { opacity: 0; pointer-events: none; }
+
+.splash-grafik { overflow: visible; }
+
+.splash-name {
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: #2d2a24;
+    opacity: 0;
+}
+.splash.spielt .splash-name { animation: splashName 0.6s ease 0.9s forwards; }
+.splash.reduziert .splash-name { animation: none; opacity: 1; }
+
+/* Gabel und Messer kreuzen sich über dem Teller und kehren zurück.
+   Drehpunkt ist die Mitte des jeweiligen Bestecks (transform-box). */
+.splash .gabel,
+.splash .messer {
+    transform-box: fill-box;
+    transform-origin: center;
+}
+.splash.spielt .gabel  { animation: gabelKreuz  1.6s cubic-bezier(0.45, 0, 0.2, 1) 0.15s both; }
+.splash.spielt .messer { animation: messerKreuz 1.6s cubic-bezier(0.45, 0, 0.2, 1) 0.15s both; }
+.splash.reduziert .gabel,
+.splash.reduziert .messer { animation: none; }
+
+@keyframes gabelKreuz {
+    0%   { transform: translate(0, 0) rotate(0deg); }
+    45%  { transform: translate(66px, 0) rotate(30deg); }
+    60%  { transform: translate(66px, 0) rotate(30deg); }
+    100% { transform: translate(0, 0) rotate(0deg); }
+}
+@keyframes messerKreuz {
+    0%   { transform: translate(0, 0) rotate(0deg); }
+    45%  { transform: translate(-66px, 0) rotate(-30deg); }
+    60%  { transform: translate(-66px, 0) rotate(-30deg); }
+    100% { transform: translate(0, 0) rotate(0deg); }
+}
+@keyframes splashName {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* === PWA: Update-Hinweis, Installieren-Karte === */
+
+.update-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    background: var(--primary-light);
+    color: var(--primary-dark);
+    font-size: 0.9rem;
+    font-weight: 600;
+    border-bottom: 1px solid #f3dca0;
+}
+.update-banner span { flex: 1; }
+.update-banner .btn { padding: 8px 12px; font-size: 0.8rem; }
+
+.install-karte {
+    margin-top: 14px;
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.install-karte .install-text {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}

@@ -29,10 +29,12 @@ mjamorga/
 ├── css/
 │   └── style.css       Design-System + alle Modul-Styles
 ├── firestore.rules     Sicherheitsregeln für den optionalen Sync
+├── sw.js               Service Worker (Offline-Hülle, Update-Erkennung)
 ├── js/
 │   ├── storage.js      Persistenz-Layer + Sync-Drehscheibe + Datums-/Wochenlogik
 │   ├── app.js          Anwendungslogik, Rendering, Events
 │   ├── sync.js         Firestore-Adapter (ES-Modul, optional)
+│   ├── pwa.js          Worker-Registrierung, Installieren, Update-Hinweis
 │   └── firebase-config.js  Projektdaten aus der Firebase-Konsole
 └── docs/               Diese Konzeptdokumentation
 ```
@@ -197,6 +199,6 @@ neutraler Text dargestellt statt zu verschwinden.
 das Umschalten einer CSS-Klasse an der betroffenen Zeile. Das erhält die
 Scrollposition und den Fokus – bei langen Einkaufslisten spürbar.
 
-**Später: Service Worker.** Für echten Offline-Betrieb (Abschnitt 22) reicht ein
-kleiner Cache-First-Worker für die statischen Dateien. Erst sinnvoll, wenn das
-Grundsystem steht.
+**Service Worker** – *umgesetzt*, als „erst Netz, dann Cache" für die App-Hülle,
+siehe [10-pwa.md](10-pwa.md). Bei jeder Veröffentlichung `CACHE_VERSION` in
+`sw.js` erhöhen.

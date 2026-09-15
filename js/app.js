@@ -43,6 +43,10 @@ class MjamOrgaApp {
         this.vorgemerktePunkte = null;       // Punkte, die eine neue Liste beim Anlegen übernimmt
         this.modalKontext = 'einkauf';       // Produkt-Modal dient Einkaufsliste und Listen
 
+        // PWA-Zustand (wird von js/pwa.js über das Ereignis "pwa-status" gefüllt).
+        // Muss vor init() stehen, weil das Dashboard schon beim Sync-Status rendert.
+        this.pwa = { installierbar: false, installiert: false, istIOS: false, updateBereit: false };
+
         this.init();
     }
 
@@ -55,7 +59,72 @@ class MjamOrgaApp {
         this.bindListenEvents();
         this.bindSync();
         this.bindDaten();
+        this.bindPwa();
         this.zeigeSeite('dashboard');
+        this.spieleStartanimation();
+    }
+
+    // =====================================================================
+    // Startanimation und PWA-Zustand
+    // =====================================================================
+
+    // Läuft einmal beim Laden, ist kurz und lässt sich antippen, um sie zu
+    // überspringen. Bei reduzierter Bewegung nur ein kurzes Einblenden.
+    spieleStartanimation() {
+        const splash = document.getElementById('splash');
+        if (!splash) return;
+        const reduziert = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const dauer = reduziert ? 500 : 1900;
+
+        const beende = () => {
+            if (splash.classList.contains('aus')) return;
+            splash.classList.add('aus');
+            setTimeout(() => { splash.style.display = 'none'; }, 350);
+        };
+        splash.classList.toggle('reduziert', reduziert);
+        splash.classList.add('spielt');
+        splash.addEventListener('click', beende);
+        setTimeout(beende, dauer);
+    }
+
+    bindPwa() {
+        document.addEventListener('pwa-status', (e) => {
+            this.pwa = Object.assign({}, this.pwa, e.detail);
+            document.getElementById('updateBanner').style.display = this.pwa.updateBereit ? 'flex' : 'none';
+            if (this.aktuelleSeite === 'dashboard') this.rendereDashboard();
+        });
+
+        document.getElementById('btnUpdateLaden').addEventListener('click', () => {
+            if (window.MjamPwa) window.MjamPwa.ladeNeu(); else window.location.reload();
+        });
+
+        document.getElementById('dashboardContent').addEventListener('click', async (e) => {
+            const el = e.target.closest('[data-aktion="app-installieren"]');
+            if (!el || !window.MjamPwa) return;
+            const ok = await window.MjamPwa.installiere();
+            this.zeigeToast(ok ? 'MjamOrga ist installiert 🎉' : 'Installation abgebrochen.');
+        });
+
+        if (window.MjamPwa) this.pwa = Object.assign({}, this.pwa, window.MjamPwa.zustand);
+    }
+
+    // Karte auf dem Dashboard: Installieren-Knopf (Android) oder Anleitung (iPhone).
+    installZeileHtml() {
+        if (this.pwa.installiert) return '';
+        if (this.pwa.installierbar) {
+            return `
+                <div class="install-karte">
+                    <div class="install-text">📲 MjamOrga als App auf den Startbildschirm – startet schneller und geht auch ohne Netz.</div>
+                    <button type="button" class="btn btn-primary" data-aktion="app-installieren">App installieren</button>
+                </div>`;
+        }
+        if (this.pwa.istIOS) {
+            return `
+                <div class="install-karte">
+                    <div class="install-text">📲 Als App installieren: unten <strong>Teilen</strong> antippen, dann <strong>„Zum Home-Bildschirm“</strong>. So bleiben die Daten auf dem iPhone auch dauerhaft erhalten.</div>
+                </div>`;
+        }
+        return '';
     }
 
     // =====================================================================
@@ -552,6 +621,7 @@ class MjamOrgaApp {
                     ${inhalt}
                 </div>
             </div>
+            ${this.installZeileHtml()}
             ${this.syncZeileHtml()}`;
     }
 
