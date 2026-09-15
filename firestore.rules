@@ -3,7 +3,7 @@
 // In der Firebase-Konsole einfügen: Firestore Database -> Regeln -> Veröffentlichen.
 //
 // Modell: Wer angemeldet ist (anonym reicht) und einen Haushaltscode kennt,
-// darf die drei Dokumente dieses Haushalts lesen und schreiben. Der Code ist
+// darf die Dokumente dieses Haushalts lesen und schreiben. Der Code ist
 // das Geheimnis – mindestens 8 Zeichen, nur a-z, 0-9 und Bindestrich.
 
 rules_version = '2';
@@ -31,7 +31,7 @@ service cloud.firestore {
     }
 
     function istBereich(name) {
-      return name in ['rezepte', 'wochenplan', 'einkaufsliste', 'listen'];
+      return name in ['rezepte', 'wochenplan', 'einkaufsliste', 'listen', 'kategorien'];
     }
 
     // Genau die Felder, die js/sync.js schreibt – nicht mehr.

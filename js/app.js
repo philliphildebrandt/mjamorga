@@ -43,6 +43,10 @@ class MjamOrgaApp {
         this.vorgemerktePunkte = null;       // Punkte, die eine neue Liste beim Anlegen übernimmt
         this.modalKontext = 'einkauf';       // Produkt-Modal dient Einkaufsliste und Listen
 
+        // PWA-Zustand (wird von js/pwa.js über das Ereignis "pwa-status" gefüllt).
+        // Muss vor init() stehen, weil das Dashboard schon beim Sync-Status rendert.
+        this.pwa = { installierbar: false, installiert: false, istIOS: false, updateBereit: false };
+
         this.init();
     }
 
@@ -55,7 +59,72 @@ class MjamOrgaApp {
         this.bindListenEvents();
         this.bindSync();
         this.bindDaten();
+        this.bindPwa();
         this.zeigeSeite('dashboard');
+        this.spieleStartanimation();
+    }
+
+    // =====================================================================
+    // Startanimation und PWA-Zustand
+    // =====================================================================
+
+    // Läuft einmal beim Laden, ist kurz und lässt sich antippen, um sie zu
+    // überspringen. Bei reduzierter Bewegung nur ein kurzes Einblenden.
+    spieleStartanimation() {
+        const splash = document.getElementById('splash');
+        if (!splash) return;
+        const reduziert = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const dauer = reduziert ? 500 : 1900;
+
+        const beende = () => {
+            if (splash.classList.contains('aus')) return;
+            splash.classList.add('aus');
+            setTimeout(() => { splash.style.display = 'none'; }, 350);
+        };
+        splash.classList.toggle('reduziert', reduziert);
+        splash.classList.add('spielt');
+        splash.addEventListener('click', beende);
+        setTimeout(beende, dauer);
+    }
+
+    bindPwa() {
+        document.addEventListener('pwa-status', (e) => {
+            this.pwa = Object.assign({}, this.pwa, e.detail);
+            document.getElementById('updateBanner').style.display = this.pwa.updateBereit ? 'flex' : 'none';
+            if (this.aktuelleSeite === 'dashboard') this.rendereDashboard();
+        });
+
+        document.getElementById('btnUpdateLaden').addEventListener('click', () => {
+            if (window.MjamPwa) window.MjamPwa.ladeNeu(); else window.location.reload();
+        });
+
+        document.getElementById('dashboardContent').addEventListener('click', async (e) => {
+            const el = e.target.closest('[data-aktion="app-installieren"]');
+            if (!el || !window.MjamPwa) return;
+            const ok = await window.MjamPwa.installiere();
+            this.zeigeToast(ok ? 'MjamOrga ist installiert 🎉' : 'Installation abgebrochen.');
+        });
+
+        if (window.MjamPwa) this.pwa = Object.assign({}, this.pwa, window.MjamPwa.zustand);
+    }
+
+    // Karte auf dem Dashboard: Installieren-Knopf (Android) oder Anleitung (iPhone).
+    installZeileHtml() {
+        if (this.pwa.installiert) return '';
+        if (this.pwa.installierbar) {
+            return `
+                <div class="install-karte">
+                    <div class="install-text">📲 MjamOrga als App auf den Startbildschirm – startet schneller und geht auch ohne Netz.</div>
+                    <button type="button" class="btn btn-primary" data-aktion="app-installieren">App installieren</button>
+                </div>`;
+        }
+        if (this.pwa.istIOS) {
+            return `
+                <div class="install-karte">
+                    <div class="install-text">📲 Als App installieren: unten <strong>Teilen</strong> antippen, dann <strong>„Zum Home-Bildschirm“</strong>. So bleiben die Daten auf dem iPhone auch dauerhaft erhalten.</div>
+                </div>`;
+        }
+        return '';
     }
 
     // =====================================================================
@@ -310,6 +379,8 @@ class MjamOrgaApp {
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 if (this.schliesseBlasenPerTastatur()) return;
+                // Das Kategorie-Popup liegt über dem Produkt-Modal: nur das oberste schließen.
+                if (this.schliesseKategorieModal()) return;
                 this.schliesseProduktModal();
                 this.schliesseSyncModal();
                 this.schliesseListeModal();
@@ -327,11 +398,53 @@ class MjamOrgaApp {
             this.fuegeMassenProdukteHinzu();
         });
 
+        // --- Kategorie-Popup ---
+        document.getElementById('btnKategorieNeu').addEventListener('click', () => {
+            this.oeffneKategorieModal();
+        });
+
+        document.getElementById('btnKategorieModalSchliessen').addEventListener('click', () => {
+            this.schliesseKategorieModal();
+        });
+
+        document.getElementById('kategorieModal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) this.schliesseKategorieModal();
+        });
+
+        document.getElementById('kategorieForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (this.kategorieUmbenennen) this.benenneKategorieUm(this.kategorieUmbenennen);
+            else this.speichereKategorie();
+        });
+
+        document.getElementById('btnKategorieUmbenennenAbbrechen').addEventListener('click', () => {
+            this.setzeKategorieModus(null);
+        });
+
+        document.getElementById('kategorieListe').addEventListener('click', (e) => {
+            const el = e.target.closest('[data-aktion]');
+            if (!el) return;
+            const name = el.closest('[data-kategorie]').dataset.kategorie;
+
+            if (el.dataset.aktion === 'kategorie-umbenennen') {
+                this.setzeKategorieModus(name);
+                const feld = document.getElementById('kategorieName');
+                feld.focus();
+                feld.select();
+            } else if (el.dataset.aktion === 'kategorie-loeschen') {
+                this.loescheKategorie(name);
+            }
+        });
+
         const container = document.getElementById('einkaufslisteContainer');
 
         container.addEventListener('click', (e) => {
             const el = e.target.closest('[data-aktion]');
             if (!el) return;
+            if (el.dataset.aktion === 'erledigte-loeschen') {
+                this.loescheErledigteProdukte();
+                return;
+            }
             const zeile = el.closest('.produkt-zeile');
             if (!zeile) return;
 
@@ -467,6 +580,11 @@ class MjamOrgaApp {
     verarbeiteExterneAenderung(bereich, wert) {
         this.daten[bereich] = wert;
 
+        // Die Auswahl im Produkt-Modal behält ihren Wert, auch während getippt wird.
+        if (bereich === 'kategorien') this.fuelleKategorieAuswahl();
+        // Namen und Zähler im offenen Kategorie-Popup aktuell halten.
+        this.rendereKategorieVerwaltung();
+
         // Während jemand tippt, würde ein Neu-Rendern die Eingabe wegwerfen.
         if (this.eingabeAktiv()) {
             this.ausstehendesRendern = true;
@@ -552,6 +670,7 @@ class MjamOrgaApp {
                     ${inhalt}
                 </div>
             </div>
+            ${this.installZeileHtml()}
             ${this.syncZeileHtml()}`;
     }
 
@@ -937,10 +1056,250 @@ class MjamOrgaApp {
     // Einkaufsliste
     // =====================================================================
 
-    fuelleKategorieAuswahl() {
-        document.getElementById('produktKategorie').innerHTML = KATEGORIEN
+    // --- Kategorienpool (geteilt von Einkaufsliste und Listen) ---
+
+    kategorienPool() {
+        return DatenSpeicher.kategorienPool(this.daten.kategorien);
+    }
+
+    // Füllt die Auswahl im Produkt-Modal passend zu modalKontext. Ohne Argument
+    // bleibt der aktuell gewählte Wert erhalten. Ein Wert, der (noch) nicht im
+    // Pool steht – etwa weil die Kategorie gerade erst synchronisiert wird –,
+    // bekommt eine eigene Option, statt stillschweigend ersetzt zu werden.
+    fuelleKategorieAuswahl(auswahl) {
+        const feld = document.getElementById('produktKategorie');
+        const wert = auswahl !== undefined ? (auswahl || '') : feld.value;
+        const namen = this.kategorienPool();
+        if (wert && !namen.includes(wert)) namen.push(wert);
+
+        const ohne = this.modalKontext === 'liste' ? '<option value="">Ohne Kategorie</option>' : '';
+        feld.innerHTML = ohne + namen
             .map(k => `<option value="${this.escapeHtml(k)}">${this.escapeHtml(k)}</option>`)
             .join('');
+        feld.value = wert;
+        if (feld.selectedIndex === -1) feld.selectedIndex = 0;
+    }
+
+    // Bündelt Einträge in der Reihenfolge des Pools. Unbekannte Kategorien
+    // bekommen eine eigene Gruppe am Ende, statt zu verschwinden; Einträge ohne
+    // Kategorie landen unter "ohneKategorie". Leere Gruppen entfallen.
+    gruppiereNachKategorie(eintraege, ohneKategorie) {
+        const gruppen = new Map(this.kategorienPool().map(k => [k, []]));
+        eintraege.forEach((e) => {
+            const kategorie = e.kategorie || ohneKategorie;
+            if (!gruppen.has(kategorie)) gruppen.set(kategorie, []);
+            gruppen.get(kategorie).push(e);
+        });
+        return Array.from(gruppen.entries()).filter(([, arr]) => arr.length > 0);
+    }
+
+    kategorieGruppeHtml(kategorie, zeilenHtml, anzahl) {
+        return `
+            <div class="kategorie-gruppe">
+                <h3 class="kategorie-titel">${this.escapeHtml(kategorie || 'Ohne Kategorie')}<span class="kategorie-anzahl">${anzahl}</span></h3>
+                ${zeilenHtml}
+            </div>`;
+    }
+
+    oeffneKategorieModal() {
+        document.getElementById('kategorieModal').style.display = 'flex';
+        this.setzeKategorieModus(null);
+        // Synchron im Klick fokussieren – nur dann öffnet iOS die Tastatur.
+        document.getElementById('kategorieName').focus();
+    }
+
+    // Das Popup hat zwei Modi: neue Kategorie anlegen (name = null) oder die
+    // eigene Kategorie "name" umbenennen. Nur Oberflächenzustand.
+    setzeKategorieModus(name) {
+        this.kategorieUmbenennen = name || null;
+        document.getElementById('kategorieModalTitel').textContent = name ? 'Kategorie umbenennen' : 'Neue Kategorie';
+        document.getElementById('kategorieNameLabel').textContent = name ? `Neuer Name für „${name}“` : 'Name';
+        document.getElementById('btnKategorieSpeichern').textContent = name ? '💾 Umbenennen' : '💾 Speichern';
+        document.getElementById('btnKategorieUmbenennenAbbrechen').style.display = name ? 'block' : 'none';
+        document.getElementById('kategorieName').value = name || '';
+        this.rendereKategorieVerwaltung();
+    }
+
+    // Nur die selbst angelegten Namen, so wie sie im Pool erscheinen.
+    eigeneKategorien() {
+        return this.kategorienPool().filter(k => !KATEGORIEN.includes(k));
+    }
+
+    rendereKategorieVerwaltung() {
+        if (document.getElementById('kategorieModal').style.display === 'none') return;
+
+        const eigene = this.eigeneKategorien();
+        document.getElementById('kategorieVerwaltung').style.display = eigene.length > 0 ? 'block' : 'none';
+        document.getElementById('kategorieListe').innerHTML = eigene.map((name) => {
+            const { produkte, punkte } = this.kategorieVerwendung(name);
+            const anzahl = produkte + punkte;
+            const aktiv = this.kategorieUmbenennen && this.kategorieUmbenennen.toLowerCase() === name.toLowerCase();
+            return `
+                <div class="kategorie-eintrag${aktiv ? ' aktiv' : ''}" data-kategorie="${this.escapeHtml(name)}">
+                    <span class="kategorie-eintrag-name">${this.escapeHtml(name)}</span>
+                    ${anzahl > 0 ? `<span class="kategorie-anzahl" title="${anzahl} Einträge">${anzahl}</span>` : ''}
+                    <button type="button" class="produkt-aktion" data-aktion="kategorie-umbenennen" title="Umbenennen" aria-label="Kategorie ${this.escapeHtml(name)} umbenennen">✏️</button>
+                    <button type="button" class="produkt-aktion" data-aktion="kategorie-loeschen" title="Löschen" aria-label="Kategorie ${this.escapeHtml(name)} löschen">🗑️</button>
+                </div>`;
+        }).join('');
+    }
+
+    // Kategorienamen werden ohne Groß-/Kleinschreibung verglichen, wie im Pool.
+    istKategorie(wert, name) {
+        return typeof wert === 'string' && wert.toLowerCase() === name.toLowerCase();
+    }
+
+    kategorieVerwendung(name) {
+        const produkte = this.daten.einkaufsliste.filter(p => this.istKategorie(p.kategorie, name)).length;
+        const punkte = this.daten.listen.reduce((summe, l) =>
+            summe + (l.punkte || []).filter(p => this.istKategorie(p.kategorie, name)).length, 0);
+        return { produkte, punkte };
+    }
+
+    // Trägt bei allen Produkten und Listenpunkten mit Kategorie "alt" die neue ein.
+    // neu = null heißt ohne Kategorie; auf der Einkaufsliste wird daraus die
+    // Standardkategorie. Gespeichert werden nur Bereiche, die sich geändert haben.
+    ersetzeKategorie(alt, neu) {
+        let produkte = 0;
+        this.daten.einkaufsliste.forEach((p) => {
+            if (!this.istKategorie(p.kategorie, alt)) return;
+            p.kategorie = neu || STANDARD_KATEGORIE;
+            produkte++;
+        });
+
+        let punkte = 0;
+        const jetzt = new Date().toISOString();
+        this.daten.listen.forEach((l) => {
+            const betroffen = (l.punkte || []).filter(p => this.istKategorie(p.kategorie, alt));
+            betroffen.forEach((p) => { p.kategorie = neu || null; });
+            if (betroffen.length > 0) l.geaendert = jetzt;
+            punkte += betroffen.length;
+        });
+
+        if (produkte > 0) this.sichere('einkaufsliste');
+        if (punkte > 0) this.sichere('listen');
+    }
+
+    // Stand die Auswahl im Produkt-Modal auf "alt", zeigt sie danach "neu".
+    zieheAuswahlNach(alt, neu) {
+        const feld = document.getElementById('produktKategorie');
+        if (!this.istKategorie(feld.value, alt)) {
+            this.fuelleKategorieAuswahl();
+            return;
+        }
+        const ersatz = neu || (this.modalKontext === 'liste' ? '' : STANDARD_KATEGORIE);
+        this.fuelleKategorieAuswahl(ersatz);
+    }
+
+    benenneKategorieUm(alt) {
+        const feld = document.getElementById('kategorieName');
+        const neu = feld.value.trim().replace(/\s+/g, ' ');
+
+        if (!neu) {
+            this.zeigeToast('Bitte einen Namen eingeben.');
+            feld.focus();
+            return;
+        }
+        if (DatenSpeicher.veraltet) {
+            this.zeigeToast('Nicht gespeichert: Die App ist veraltet, bitte neu laden.');
+            return;
+        }
+        if (!this.eigeneKategorien().some(k => this.istKategorie(k, alt))) {
+            this.zeigeToast('Die Kategorie gibt es nicht mehr.');
+            this.setzeKategorieModus(null);
+            return;
+        }
+        if (neu === alt) {
+            this.setzeKategorieModus(null);
+            return;
+        }
+
+        // Neuer Name gehört schon einer anderen Kategorie: zusammenführen statt doppelt.
+        const ziel = this.istKategorie(neu, alt) ? null
+            : this.kategorienPool().find(k => this.istKategorie(k, neu));
+        if (ziel) {
+            if (!confirm(`„${ziel}“ gibt es schon.\n„${alt}“ damit zusammenführen? Alle Einträge wandern nach „${ziel}“.`)) return;
+            this.daten.kategorien = this.daten.kategorien.filter(k => !this.istKategorie(k.name, alt));
+        } else {
+            this.daten.kategorien.forEach((k) => { if (this.istKategorie(k.name, alt)) k.name = neu; });
+        }
+        this.sichere('kategorien');
+        this.ersetzeKategorie(alt, ziel || neu);
+
+        this.zieheAuswahlNach(alt, ziel || neu);
+        this.setzeKategorieModus(null);
+        this.rendereAktuelleSeite();
+        this.zeigeToast(ziel ? `„${alt}“ mit „${ziel}“ zusammengeführt` : `Umbenannt in „${neu}“`);
+    }
+
+    loescheKategorie(name) {
+        if (DatenSpeicher.veraltet) {
+            this.zeigeToast('Nicht gespeichert: Die App ist veraltet, bitte neu laden.');
+            return;
+        }
+
+        const { produkte, punkte } = this.kategorieVerwendung(name);
+        const frage = [`Kategorie „${name}“ löschen?`];
+        if (produkte > 0) frage.push(`${produkte} Produkt(e) auf der Einkaufsliste kommen nach „${STANDARD_KATEGORIE}“.`);
+        if (punkte > 0) frage.push(`${punkte} Listenpunkt(e) sind danach ohne Kategorie.`);
+        if (!confirm(frage.join('\n'))) return;
+
+        this.daten.kategorien = this.daten.kategorien.filter(k => !this.istKategorie(k.name, name));
+        this.sichere('kategorien');
+        this.ersetzeKategorie(name, null);
+
+        this.zieheAuswahlNach(name, null);
+        if (this.kategorieUmbenennen && this.istKategorie(this.kategorieUmbenennen, name)) this.setzeKategorieModus(null);
+        else this.rendereKategorieVerwaltung();
+        this.rendereAktuelleSeite();
+        this.zeigeToast(`Kategorie „${name}“ gelöscht`);
+    }
+
+    // Liefert true, wenn das Popup offen war (für Escape).
+    schliesseKategorieModal() {
+        const modal = document.getElementById('kategorieModal');
+        if (modal.style.display === 'none') return false;
+        modal.style.display = 'none';
+        return true;
+    }
+
+    speichereKategorie() {
+        const feld = document.getElementById('kategorieName');
+        const name = feld.value.trim().replace(/\s+/g, ' ');
+
+        if (!name) {
+            this.zeigeToast('Bitte einen Namen eingeben.');
+            feld.focus();
+            return;
+        }
+
+        // Gibt es den Namen schon, wird nur ausgewählt – kein Duplikat im Pool.
+        const vorhanden = this.kategorienPool().find(k => k.toLowerCase() === name.toLowerCase());
+        if (!vorhanden) {
+            const kategorie = DatenSpeicher.erstelleKategorie(name);
+            this.daten.kategorien.push(kategorie);
+            if (!this.sichere('kategorien')) {
+                this.daten.kategorien = this.daten.kategorien.filter(k => k.id !== kategorie.id);
+                return;
+            }
+        }
+
+        this.fuelleKategorieAuswahl(vorhanden || name);
+        this.schliesseKategorieModal();
+        this.zeigeToast(vorhanden ? `„${vorhanden}“ gibt es schon – ausgewählt` : `Kategorie „${name}“ gespeichert`);
+
+        // Weiter im Produkt-Modal: Name noch leer -> dorthin, sonst direkt zum Hinzufügen.
+        const nameFeld = document.getElementById('produktName');
+        if (nameFeld.value.trim()) document.getElementById('btnProduktSpeichern').focus();
+        else nameFeld.focus();
+    }
+
+    // --- Erledigte löschen (Einkaufsliste und Listen) ---
+
+    erledigteLoeschenHtml(anzahl) {
+        return anzahl > 0
+            ? `<button type="button" class="btn btn-secondary aufraeumen-knopf" data-aktion="erledigte-loeschen">🧹 ${anzahl} erledigte löschen</button>`
+            : '';
     }
 
     rendereEinkaufsliste() {
@@ -958,25 +1317,20 @@ class MjamOrgaApp {
         }
 
         // Gruppierung entsteht erst beim Rendern – gespeichert wird ein flaches Array.
-        const gruppen = new Map(KATEGORIEN.map(k => [k, []]));
-        produkte.forEach((p) => {
-            const kategorie = gruppen.has(p.kategorie) ? p.kategorie : STANDARD_KATEGORIE;
-            gruppen.get(kategorie).push(p);
-        });
-
-        const gruppenHtml = Array.from(gruppen.entries())
-            .filter(([, arr]) => arr.length > 0)
+        const gruppenHtml = this.gruppiereNachKategorie(produkte, STANDARD_KATEGORIE)
             .map(([kategorie, arr]) => {
                 // Offene Produkte oben, erledigte unten – erledigte bleiben in der Liste.
                 const sortiert = arr.slice().sort((a, b) => (a.erledigt ? 1 : 0) - (b.erledigt ? 1 : 0));
-                return `
-                    <div class="kategorie-gruppe">
-                        <h3 class="kategorie-titel">${this.escapeHtml(kategorie)}<span class="kategorie-anzahl">${arr.length}</span></h3>
-                        ${sortiert.map(p => this.produktZeileHtml(p)).join('')}
-                    </div>`;
+                return this.kategorieGruppeHtml(kategorie, sortiert.map(p => this.produktZeileHtml(p)).join(''), arr.length);
             }).join('');
 
-        container.innerHTML = `<div class="listen-info" id="listenInfo">${this.listenInfoText()}</div>${gruppenHtml}`;
+        const erledigt = produkte.filter(p => p.erledigt).length;
+        container.innerHTML = `
+            <div class="listen-info-zeile">
+                <span class="listen-info" id="listenInfo">${this.listenInfoText()}</span>
+                <span class="aufraeumen-platz" id="einkaufAufraeumen">${this.erledigteLoeschenHtml(erledigt)}</span>
+            </div>
+            ${gruppenHtml}`;
     }
 
     produktZeileHtml(produkt) {
@@ -1008,6 +1362,9 @@ class MjamOrgaApp {
 
         const info = document.getElementById('listenInfo');
         if (info) info.textContent = this.listenInfoText();
+
+        const platz = document.getElementById('einkaufAufraeumen');
+        if (platz) platz.innerHTML = this.erledigteLoeschenHtml(this.daten.einkaufsliste.filter(p => p.erledigt).length);
     }
 
     loescheProdukt(id) {
@@ -1016,15 +1373,26 @@ class MjamOrgaApp {
         this.rendereEinkaufsliste();
     }
 
+    loescheErledigteProdukte() {
+        const anzahl = this.daten.einkaufsliste.filter(p => p.erledigt).length;
+        if (anzahl === 0) return;
+        if (!confirm(`${anzahl} erledigte Produkte von der Einkaufsliste löschen?`)) return;
+
+        this.daten.einkaufsliste = this.daten.einkaufsliste.filter(p => !p.erledigt);
+        this.sichere('einkaufsliste');
+        this.rendereEinkaufsliste();
+        this.zeigeToast(`${anzahl} Produkte gelöscht`);
+    }
+
     // Ein Formular für beide Fälle: leeres Feld "produktId" = neues Produkt,
     // gefülltes = Bearbeiten. Beim Bearbeiten wird die Massen-Eingabe ausgeblendet.
     oeffneProduktModal(produktId) {
         const produkt = produktId ? this.findeProdukt(produktId) : null;
         const nameFeld = document.getElementById('produktName');
-        const kategorieFeld = document.getElementById('produktKategorie');
 
         this.modalKontext = 'einkauf';
-        document.getElementById('produktKategorieGruppe').style.display = 'block';
+        // Neues Produkt: die zuletzt gewählte Kategorie bleibt stehen.
+        this.fuelleKategorieAuswahl(produkt ? (produkt.kategorie || STANDARD_KATEGORIE) : undefined);
         document.getElementById('punktFaelligGruppe').style.display = 'none';
         document.getElementById('massenHinweis').textContent =
             'Nutzt die oben gewählte Kategorie. Aufzählungszeichen und Nummerierungen werden entfernt.';
@@ -1035,9 +1403,6 @@ class MjamOrgaApp {
         document.getElementById('massenBereich').style.display = produkt ? 'none' : 'block';
 
         nameFeld.value = produkt ? produkt.name : '';
-        if (produkt) {
-            kategorieFeld.value = KATEGORIEN.includes(produkt.kategorie) ? produkt.kategorie : STANDARD_KATEGORIE;
-        }
 
         document.getElementById('produktModal').style.display = 'flex';
         nameFeld.focus();
@@ -1045,6 +1410,7 @@ class MjamOrgaApp {
     }
 
     schliesseProduktModal() {
+        this.schliesseKategorieModal();
         document.getElementById('produktModal').style.display = 'none';
         document.getElementById('produktId').value = '';
     }
@@ -1057,7 +1423,7 @@ class MjamOrgaApp {
         return {
             id: DatenSpeicher.generiereId(),
             name: name,
-            kategorie: KATEGORIEN.includes(kategorie) ? kategorie : STANDARD_KATEGORIE,
+            kategorie: kategorie || STANDARD_KATEGORIE,
             erledigt: false,
             erstellt: new Date().toISOString(),
         };
@@ -1084,7 +1450,7 @@ class MjamOrgaApp {
                 return;
             }
             produkt.name = name;
-            produkt.kategorie = KATEGORIEN.includes(kategorie) ? kategorie : STANDARD_KATEGORIE;
+            produkt.kategorie = kategorie || STANDARD_KATEGORIE;
             this.sichere('einkaufsliste');
             this.schliesseProduktModal();
             this.rendereEinkaufsliste();
@@ -1233,8 +1599,8 @@ class MjamOrgaApp {
             }
         });
 
-        document.getElementById('listeDetailFuss').addEventListener('click', (e) => {
-            if (e.target.closest('[data-aktion="erledigte-aufraeumen"]')) this.raeumeErledigteAuf();
+        document.getElementById('listeDetailKopf').addEventListener('click', (e) => {
+            if (e.target.closest('[data-aktion="erledigte-loeschen"]')) this.raeumeErledigteAuf();
         });
 
         // --- Auswahlleiste ---
@@ -1408,7 +1774,8 @@ class MjamOrgaApp {
         if (zeitraum) kopfTeile.push(`📆 ${this.escapeHtml(zeitraum)}`);
         kopfTeile.push(liste.art === 'todos' ? '☑️ Todos' : '📋 Allgemeine Liste');
         kopfTeile.push(`<span id="listeInfo">${gesamt - erledigt} offen · ${gesamt} gesamt</span>`);
-        document.getElementById('listeDetailKopf').innerHTML = kopfTeile.join('<span class="trenner">·</span>');
+        document.getElementById('listeDetailKopf').innerHTML = kopfTeile.join('<span class="trenner">·</span>')
+            + `<span class="aufraeumen-platz" id="listeAufraeumen">${this.erledigteLoeschenHtml(erledigt)}</span>`;
 
         const container = document.getElementById('listeDetailContainer');
         if (gesamt === 0) {
@@ -1418,14 +1785,16 @@ class MjamOrgaApp {
                     <p>Diese Liste ist noch leer.</p>
                     <p class="klein">Tippe auf „＋ Punkt“, um etwas einzutragen.</p>
                 </div>`;
+        } else if (punkte.some(p => p.kategorie)) {
+            // Gruppen erst, sobald ein Punkt eine Kategorie hat; die Sortierung
+            // aus sortierePunkte() bleibt innerhalb jeder Gruppe erhalten.
+            container.innerHTML = this.gruppiereNachKategorie(punkte, '')
+                .map(([kategorie, arr]) => this.kategorieGruppeHtml(kategorie, arr.map(p => this.punktZeileHtml(liste, p)).join(''), arr.length))
+                .join('');
         } else {
             container.innerHTML = punkte.map(p => this.punktZeileHtml(liste, p)).join('');
         }
         container.classList.toggle('auswahl-modus', this.auswahlAktiv);
-
-        document.getElementById('listeDetailFuss').innerHTML = erledigt > 0
-            ? `<button type="button" class="btn btn-secondary btn-block" data-aktion="erledigte-aufraeumen">🧹 ${erledigt} erledigte aufräumen</button>`
-            : '';
 
         this.aktualisiereAuswahlLeiste();
     }
@@ -1468,11 +1837,9 @@ class MjamOrgaApp {
         const info = document.getElementById('listeInfo');
         if (info) info.textContent = `${offen} offen · ${gesamt} gesamt`;
 
-        // Der Aufräum-Button hängt von der Anzahl erledigter Punkte ab.
-        const erledigt = gesamt - offen;
-        document.getElementById('listeDetailFuss').innerHTML = erledigt > 0
-            ? `<button type="button" class="btn btn-secondary btn-block" data-aktion="erledigte-aufraeumen">🧹 ${erledigt} erledigte aufräumen</button>`
-            : '';
+        // Der Löschen-Knopf hängt von der Anzahl erledigter Punkte ab.
+        const platz = document.getElementById('listeAufraeumen');
+        if (platz) platz.innerHTML = this.erledigteLoeschenHtml(gesamt - offen);
     }
 
     loeschePunkt(id) {
@@ -1489,12 +1856,12 @@ class MjamOrgaApp {
         if (!liste) return;
         const anzahl = liste.punkte.filter(p => p.erledigt).length;
         if (anzahl === 0) return;
-        if (!confirm(`${anzahl} erledigte Punkte aus „${liste.titel}“ entfernen?`)) return;
+        if (!confirm(`${anzahl} erledigte Punkte aus „${liste.titel}“ löschen?`)) return;
 
         liste.punkte = liste.punkte.filter(p => !p.erledigt);
         this.sichereListe(liste);
         this.rendereListeDetail();
-        this.zeigeToast(`${anzahl} Punkte entfernt`);
+        this.zeigeToast(`${anzahl} Punkte gelöscht`);
     }
 
     // --- Punkt anlegen / bearbeiten (nutzt das Produkt-Modal im Listen-Kontext) ---
@@ -1506,11 +1873,11 @@ class MjamOrgaApp {
         const nameFeld = document.getElementById('produktName');
 
         this.modalKontext = 'liste';
-        document.getElementById('produktKategorieGruppe').style.display = 'none';
+        this.fuelleKategorieAuswahl(punkt ? punkt.kategorie : '');
         document.getElementById('punktFaelligGruppe').style.display = liste.art === 'todos' ? 'block' : 'none';
         document.getElementById('punktFaellig').value = punkt && punkt.faellig ? punkt.faellig : '';
         document.getElementById('massenHinweis').textContent =
-            'Aufzählungszeichen und Nummerierungen werden entfernt.';
+            'Nutzt die oben gewählte Kategorie. Aufzählungszeichen und Nummerierungen werden entfernt.';
 
         document.getElementById('produktId').value = punkt ? punkt.id : '';
         document.getElementById('produktModalTitel').textContent = punkt ? 'Punkt bearbeiten' : 'Punkt hinzufügen';
@@ -1530,6 +1897,7 @@ class MjamOrgaApp {
         const nameFeld = document.getElementById('produktName');
         const name = nameFeld.value.trim();
         const faellig = liste.art === 'todos' ? (document.getElementById('punktFaellig').value || null) : null;
+        const kategorie = document.getElementById('produktKategorie').value || null;
         const id = document.getElementById('produktId').value;
 
         if (!name) {
@@ -1546,6 +1914,7 @@ class MjamOrgaApp {
             }
             punkt.name = name;
             punkt.faellig = faellig;
+            punkt.kategorie = kategorie;
             this.sichereListe(liste);
             this.schliesseProduktModal();
             this.rendereListeDetail();
@@ -1553,7 +1922,7 @@ class MjamOrgaApp {
             return;
         }
 
-        liste.punkte.push(DatenSpeicher.erstellePunkt(name, faellig));
+        liste.punkte.push(DatenSpeicher.erstellePunkt(name, faellig, kategorie));
         this.sichereListe(liste);
         this.rendereListeDetail();
 
@@ -1569,6 +1938,7 @@ class MjamOrgaApp {
 
         const feld = document.getElementById('produktMassenEingabe');
         const faellig = liste.art === 'todos' ? (document.getElementById('punktFaellig').value || null) : null;
+        const kategorie = document.getElementById('produktKategorie').value || null;
         const namen = this.zerlegeZeilen(feld.value);
 
         if (namen.length === 0) {
@@ -1576,7 +1946,7 @@ class MjamOrgaApp {
             return;
         }
 
-        namen.forEach((name) => liste.punkte.push(DatenSpeicher.erstellePunkt(name, faellig)));
+        namen.forEach((name) => liste.punkte.push(DatenSpeicher.erstellePunkt(name, faellig, kategorie)));
         this.sichereListe(liste);
 
         feld.value = '';
@@ -1623,14 +1993,14 @@ class MjamOrgaApp {
         document.getElementById('btnAuswahlNeueListe').disabled = n === 0;
     }
 
-    // Die markierten Punkte als Vorlage: nur Name und Fälligkeit, keine IDs.
+    // Die markierten Punkte als Vorlage: Name, Fälligkeit und Kategorie, keine IDs.
     // Beim Kopieren entstehen immer neue Punkte, das Original bleibt unberührt.
     ausgewaehltePunkteAlsVorlage() {
         const liste = this.aktuelleListe();
         if (!liste) return [];
         return DatenSpeicher.sortierePunkte(liste)
             .filter(p => this.ausgewaehltePunkte.has(p.id))
-            .map(p => ({ name: p.name, faellig: p.faellig || null }));
+            .map(p => ({ name: p.name, faellig: p.faellig || null, kategorie: p.kategorie || null }));
     }
 
     // --- Liste anlegen / bearbeiten ---
@@ -1703,7 +2073,7 @@ class MjamOrgaApp {
             return;
         }
 
-        const punkte = (this.vorgemerktePunkte || []).map(v => DatenSpeicher.erstellePunkt(v.name, art === 'todos' ? v.faellig : null));
+        const punkte = (this.vorgemerktePunkte || []).map(v => DatenSpeicher.erstellePunkt(v.name, art === 'todos' ? v.faellig : null, v.kategorie));
         const liste = DatenSpeicher.erstelleListe({ titel, farbe, art, von, bis, punkte });
         this.daten.listen.unshift(liste);
         this.sichere('listen');
@@ -1759,7 +2129,7 @@ class MjamOrgaApp {
         }
 
         if (ziel === 'einkaufsliste') {
-            punkte.forEach(p => this.daten.einkaufsliste.push(this.erstelleProdukt(p.name, STANDARD_KATEGORIE)));
+            punkte.forEach(p => this.daten.einkaufsliste.push(this.erstelleProdukt(p.name, p.kategorie)));
             this.sichere('einkaufsliste');
             if (this.aktuelleSeite === 'einkaufsliste') this.rendereEinkaufsliste();
             this.zeigeToast(`${punkte.length} Punkte auf die Einkaufsliste kopiert`);
@@ -1772,7 +2142,7 @@ class MjamOrgaApp {
             this.zeigeToast('Zielliste nicht gefunden.');
             return;
         }
-        punkte.forEach(p => liste.punkte.push(DatenSpeicher.erstellePunkt(p.name, liste.art === 'todos' ? p.faellig : null)));
+        punkte.forEach(p => liste.punkte.push(DatenSpeicher.erstellePunkt(p.name, liste.art === 'todos' ? p.faellig : null, p.kategorie)));
         this.sichereListe(liste);
         this.zeigeToast(`${punkte.length} Punkte nach „${liste.titel}“ kopiert`);
         this.beendeAuswahl();
@@ -1814,7 +2184,7 @@ class MjamOrgaApp {
     oeffneDatenModal() {
         this.zeigeImportVorschau(null);
         const zaehler = BEREICHE.map((b) => {
-            const label = { rezepte: 'Rezepte', wochenplan: 'Wochen', einkaufsliste: 'Produkte', listen: 'Listen' }[b] || b;
+            const label = { rezepte: 'Rezepte', wochenplan: 'Wochen', einkaufsliste: 'Produkte', listen: 'Listen', kategorien: 'Eigene Kategorien' }[b] || b;
             return `<div class="daten-kachel"><div class="daten-zahl">${DatenSpeicher.zaehle(b, this.daten[b])}</div><div class="daten-label">${label}</div></div>`;
         }).join('');
         document.getElementById('datenUebersicht').innerHTML =
@@ -1866,7 +2236,7 @@ class MjamOrgaApp {
             aktionen.style.display = 'block';
             return;
         }
-        const labels = { rezepte: 'Rezepte', wochenplan: 'Wochen', einkaufsliste: 'Produkte', listen: 'Listen' };
+        const labels = { rezepte: 'Rezepte', wochenplan: 'Wochen', einkaufsliste: 'Produkte', listen: 'Listen', kategorien: 'Kategorien' };
         const teile = Object.keys(gepruefte.bereiche).map(b => `${DatenSpeicher.zaehle(b, gepruefte.bereiche[b])} ${labels[b] || b}`);
         const datum = exportiert ? new Date(exportiert) : null;
         const datumText = datum && !isNaN(datum) ? ` vom ${DatenSpeicher.formatKurz(datum)}` : '';
@@ -1884,6 +2254,7 @@ class MjamOrgaApp {
         try {
             const ergebnis = DatenSpeicher.importiere(this.importVorbereitet, modus);
             this.daten = DatenSpeicher.ladeAlle();
+            this.fuelleKategorieAuswahl();
             this.schliesseDatenModal();
             this.aktuellesRezeptId = null;
             this.aktuelleListeId = null;
@@ -1905,6 +2276,7 @@ class MjamOrgaApp {
         if (bereich === 'wochenplan') ok = DatenSpeicher.speichereWochenplan(this.daten.wochenplan);
         if (bereich === 'einkaufsliste') ok = DatenSpeicher.speichereEinkaufsliste(this.daten.einkaufsliste);
         if (bereich === 'listen') ok = DatenSpeicher.speichereListen(this.daten.listen);
+        if (bereich === 'kategorien') ok = DatenSpeicher.speichereKategorien(this.daten.kategorien);
         if (!ok) {
             this.zeigeToast(DatenSpeicher.veraltet
                 ? 'Nicht gespeichert: Die App ist veraltet, bitte neu laden.'

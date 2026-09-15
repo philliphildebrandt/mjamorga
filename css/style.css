@@ -641,8 +641,86 @@ body {
 .listen-info {
     color: var(--text-secondary);
     font-size: 0.8rem;
+}
+
+.listen-info-zeile {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 32px;
     padding: 0 4px 4px;
 }
+
+/* Erledigte löschen: oben neben dem Zähler, ohne Scrollen erreichbar */
+.aufraeumen-platz { margin-left: auto; }
+.aufraeumen-knopf {
+    padding: 5px 12px;
+    font-size: 0.8rem;
+}
+
+/* Kategorie-Auswahl mit ＋ daneben */
+.auswahl-mit-knopf {
+    display: flex;
+    gap: 8px;
+}
+.auswahl-mit-knopf select {
+    flex: 1;
+    min-width: 0;
+}
+.btn-plus {
+    flex-shrink: 0;
+    width: 48px;
+    padding: 0;
+    font-size: 1.3rem;
+}
+
+/* Popup über einem anderen Modal */
+.modal-overlay.modal-oben { z-index: 210; }
+
+/* Kategorie-Popup: eigene Kategorien umbenennen und löschen */
+.kategorie-verwaltung {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+}
+.kategorie-liste {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+.kategorie-eintrag {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px 6px 12px;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    border: 1px solid transparent;
+}
+.kategorie-eintrag.aktiv {
+    border-color: var(--primary);
+    background: var(--primary-light);
+}
+.kategorie-eintrag-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.95rem;
+    overflow-wrap: anywhere;
+}
+.kategorie-eintrag .produkt-aktion {
+    background: none;
+    border: none;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 8px 6px;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+}
+.kategorie-eintrag .produkt-aktion:hover { background: var(--border); }
 
 .kategorie-gruppe {
     display: flex;
@@ -1301,13 +1379,12 @@ body {
     padding: 0 4px 12px;
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 4px;
 }
 .liste-detail-kopf .trenner { padding: 0 4px; color: var(--text-light); }
 
 #btnPunktHinzufuegen { margin-bottom: 12px; }
-
-.liste-detail-fuss { margin-top: 14px; }
 
 .punkt-faellig {
     display: inline-block;
@@ -1517,4 +1594,93 @@ body.auswahl-offen .page-container { padding-bottom: calc(var(--nav-height) + 90
     font-size: 0.9rem;
     margin-bottom: 12px;
     line-height: 1.6;
+}
+
+/* === Startanimation === */
+
+.splash {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    background: var(--primary);
+    transition: opacity 0.35s ease;
+}
+.splash.aus { opacity: 0; pointer-events: none; }
+
+.splash-grafik { overflow: visible; }
+
+.splash-name {
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: #2d2a24;
+    opacity: 0;
+}
+.splash.spielt .splash-name { animation: splashName 0.6s ease 0.9s forwards; }
+.splash.reduziert .splash-name { animation: none; opacity: 1; }
+
+/* Gabel und Messer kreuzen sich über dem Teller und kehren zurück.
+   Drehpunkt ist die Mitte des jeweiligen Bestecks (transform-box). */
+.splash .gabel,
+.splash .messer {
+    transform-box: fill-box;
+    transform-origin: center;
+}
+.splash.spielt .gabel  { animation: gabelKreuz  1.6s cubic-bezier(0.45, 0, 0.2, 1) 0.15s both; }
+.splash.spielt .messer { animation: messerKreuz 1.6s cubic-bezier(0.45, 0, 0.2, 1) 0.15s both; }
+.splash.reduziert .gabel,
+.splash.reduziert .messer { animation: none; }
+
+@keyframes gabelKreuz {
+    0%   { transform: translate(0, 0) rotate(0deg); }
+    45%  { transform: translate(66px, 0) rotate(30deg); }
+    60%  { transform: translate(66px, 0) rotate(30deg); }
+    100% { transform: translate(0, 0) rotate(0deg); }
+}
+@keyframes messerKreuz {
+    0%   { transform: translate(0, 0) rotate(0deg); }
+    45%  { transform: translate(-66px, 0) rotate(-30deg); }
+    60%  { transform: translate(-66px, 0) rotate(-30deg); }
+    100% { transform: translate(0, 0) rotate(0deg); }
+}
+@keyframes splashName {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* === PWA: Update-Hinweis, Installieren-Karte === */
+
+.update-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    background: var(--primary-light);
+    color: var(--primary-dark);
+    font-size: 0.9rem;
+    font-weight: 600;
+    border-bottom: 1px solid #f3dca0;
+}
+.update-banner span { flex: 1; }
+.update-banner .btn { padding: 8px 12px; font-size: 0.8rem; }
+
+.install-karte {
+    margin-top: 14px;
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.install-karte .install-text {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
 }

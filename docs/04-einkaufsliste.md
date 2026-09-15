@@ -17,6 +17,8 @@ die spätere Anbindung an Rezepte und Wochenplan vorbereitet.
 5. **Produkt bearbeiten** – Name und Kategorie jederzeit änderbar
 6. **Mehrere Produkte gleichzeitig** aus kopiertem Text einfügen
 7. Einzelne Produkte löschen
+8. **Eigene Kategorien** über das ＋ neben der Kategorie-Auswahl anlegen, umbenennen und löschen
+9. **Erledigte löschen** mit einem Knopf oben neben dem Zähler
 
 ### Datenmodell
 
@@ -37,28 +39,62 @@ entsteht erst beim Rendern. Dadurch bleibt ein Kategoriewechsel eine einzige
 Feldänderung, und das Umbenennen oder Ergänzen von Kategorien berührt die
 gespeicherten Daten nicht.
 
-### Kategorien
+### Kategorien und Kategorienpool
 
-Die Kategorien liegen als **eine Konstante an einer Stelle**:
+Der **Kategorienpool** besteht aus zwei Teilen:
 
-```js
-const KATEGORIEN = [
-    'Obst & Gemüse', 'Fleisch', 'Milchprodukte', 'Getränke',
-    'Tiefkühl', 'Vorräte', 'Haushalt', 'Sonstiges'
-];
+- den eingebauten Kategorien als Konstante `KATEGORIEN` in `storage.js`, grob in
+  der Reihenfolge eines Supermarkt-Rundgangs
+- den **selbst angelegten Kategorien** im Bereich `kategorien`
+  (`mjamorga_kategorien`, im Live-Sync ein eigenes Dokument)
+
+```json
+"kategorien": [
+  { "id": "k1a2b3", "name": "Drogerie", "erstellt": "2026-09-15T12:00:00.000Z" }
+]
 ```
 
-Diese Liste speist sowohl das Auswahlfeld im Formular als auch die
-Gruppenreihenfolge in der Anzeige – die Reihenfolge entspricht grob einem
-Supermarkt-Rundgang. Eine Kategorie zu ergänzen bedeutet damit genau eine
-Zeile Änderung, wie in Abschnitt 17 gefordert. Produkte mit einer unbekannten
-Kategorie (z. B. aus älteren Daten) landen am Ende unter „Sonstiges“, statt zu
-verschwinden.
+`DatenSpeicher.kategorienPool()` setzt beides zusammen: eingebaute, dann eigene
+in Anlegereihenfolge, „Sonstiges" immer zuletzt. Gleiche Namen erscheinen nur
+einmal, ohne Rücksicht auf Groß- und Kleinschreibung. Der Pool speist das
+Auswahlfeld und die Gruppenreihenfolge. **Einkaufsliste und Listen teilen sich
+denselben Pool.**
+
+**Neue Kategorie anlegen.** Das ＋ neben der Auswahl öffnet ein kleines Popup über
+dem Produkt-Modal: ein Textfeld und Speichern. Das Feld wird im selben Klick
+fokussiert, nur dann öffnet iOS die Tastatur sofort. Enter speichert. Danach
+steht die Kategorie in der Auswahl, ist gewählt, und das Produkt-Modal bleibt
+offen. Gibt es den Namen schon, wird nur die vorhandene Kategorie gewählt.
+Escape oder ein Tipp daneben schließt nur das Popup.
+
+**Eigene Kategorien umbenennen und löschen.** Im selben Popup stehen unter dem
+Textfeld alle selbst angelegten Kategorien, jede mit Anzahl der Einträge, ✏️ und
+🗑️. Die eingebauten sind dort nicht aufgeführt und bleiben unveränderlich.
+
+- **✏️ Umbenennen** schaltet das Popup in den Umbenennen-Modus: Das Feld enthält
+  den alten Namen, markiert, und „Abbrechen" führt zurück. Beim Speichern ziehen
+  alle Produkte und Listenpunkte mit dieser Kategorie mit, ebenso eine gerade
+  gewählte Auswahl im Produkt-Modal. Eine reine Änderung der Groß- und
+  Kleinschreibung ist erlaubt.
+- **Name schon vergeben?** Dann wird nach Rückfrage **zusammengeführt**: Die
+  Einträge wandern in die vorhandene Kategorie, die umbenannte verschwindet. So
+  lässt sich ein Tippfehler wie „Drogrie" in „Drogerie" auflösen.
+- **🗑️ Löschen** fragt nach und nennt die Folgen: Produkte kommen nach
+  „Sonstiges", Listenpunkte sind danach ohne Kategorie.
+
+Verglichen wird ohne Rücksicht auf Groß- und Kleinschreibung, wie im Pool. Legen
+also zwei Geräte offline „Drogerie" und „drogerie" an, erfassen Umbenennen und
+Löschen beide. Jede Aktion speichert `kategorien` und nur die Bereiche
+`einkaufsliste` bzw. `listen`, in denen sich tatsächlich etwas geändert hat.
+
+Produkte mit einer Kategorie, die nicht im Pool steht (etwa weil der Sync der
+neuen Kategorie noch unterwegs ist), bekommen am Ende eine eigene Gruppe, statt
+unter „Sonstiges" zu verschwinden.
 
 ### Gruppierte Darstellung
 
-Beim Rendern werden die Produkte über `reduce` nach Kategorie gebündelt und in
-der Reihenfolge von `KATEGORIEN` ausgegeben. Leere Kategorien erscheinen nicht.
+Beim Rendern bündelt `gruppiereNachKategorie()` die Produkte nach Kategorie und
+gibt sie in der Reihenfolge des Kategorienpools aus. Leere Kategorien erscheinen nicht.
 Innerhalb einer Gruppe stehen offene Produkte oben, erledigte unten – so bleibt
 das Wesentliche im Blick, ohne dass abgehakte Einträge verschwinden (Abschnitt 15).
 
@@ -78,6 +114,14 @@ Ein Antippen kehrt `erledigt` um, speichert und schaltet die Klasse `erledigt`
 an der Zeile um. CSS erledigt den Rest: grüner Haken, durchgestrichener und
 abgeblendeter Text. Bewusst **kein** vollständiges Neu-Rendern der Liste – so
 bleiben Scrollposition und Rhythmus beim Einkaufen erhalten.
+
+### Erledigte löschen
+
+Sobald etwas abgehakt ist, steht oben rechts neben `offen · gesamt` der Knopf
+**🧹 N erledigte löschen**. Er sitzt oben, damit er ohne Scrollen erreichbar ist.
+Nach einer Rückfrage werden alle erledigten Produkte entfernt, auch auf allen
+verbundenen Geräten. Beim Abhaken wird nur der Knopf aktualisiert, nicht die
+ganze Liste.
 
 ### Produkt hinzufügen
 
@@ -153,10 +197,10 @@ Mehr wird an dieser Stelle nicht vorweggenommen.
 
 ## Verbesserungen
 
-**Erledigte Produkte entfernen.** Erledigtes bleibt laut Abschnitt 15 in der
-Liste – nach mehreren Einkäufen wird sie dadurch unbrauchbar lang. Ein Button
-„Erledigte entfernen“ mit Anzahl-Angabe löst das, ohne das automatische
-Verschwinden einzuführen. Das ist die dringendste Ergänzung dieses Moduls.
+**Eigene Kategorien sortieren.** Neue Kategorien stehen immer vor „Sonstiges", in
+Anlegereihenfolge. Ein Verschieben per Ziehen in der Verwaltung würde die
+Gruppenreihenfolge an den eigenen Supermarkt anpassen. Das Datenmodell braucht
+dafür nur die Reihenfolge im Array.
 
 **Kategorie direkt in der Zeile umschalten.** Das Bearbeiten läuft über das
 Modal. Für den häufigsten Fall – nur die Kategorie korrigieren – wäre ein

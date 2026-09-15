@@ -13,21 +13,24 @@ const STORAGE_KEYS = {
     wochenplan: 'mjamorga_wochenplan',
     einkaufsliste: 'mjamorga_einkaufsliste',
     listen: 'mjamorga_listen',
+    kategorien: 'mjamorga_kategorien',
 };
 
 // Die synchronisierten Bereiche, in der Reihenfolge des Erstabgleichs.
-const BEREICHE = ['rezepte', 'wochenplan', 'einkaufsliste', 'listen'];
+const BEREICHE = ['rezepte', 'wochenplan', 'einkaufsliste', 'listen', 'kategorien'];
 
 // Haushaltscode: alle Geräte mit demselben Code teilen sich einen Datenstand.
 const HAUSHALT_KEY = 'mjamorga_haushalt';
 const HAUSHALT_MUSTER = /^[a-z0-9-]{8,64}$/;
 
-// Reihenfolge entspricht grob einem Supermarkt-Rundgang.
-// Erweitern: eine Zeile ergänzen – Formular und Gruppierung ziehen automatisch nach.
+// Fest eingebaute Kategorien, Reihenfolge grob wie ein Supermarkt-Rundgang.
+// Selbst angelegte Kategorien liegen im Bereich "kategorien" und werden von
+// kategorienPool() hinter diesen und vor der Standardkategorie einsortiert.
 const KATEGORIEN = [
     'Obst & Gemüse',
     'Fleisch',
     'Milchprodukte',
+    'Brot- und Teigwaren',
     'Getränke',
     'Tiefkühl',
     'Vorräte',
@@ -59,7 +62,7 @@ const LISTEN_ARTEN = {
 // ein Eintrag für die neue Nummer ergänzt. Beim Laden laufen alle Schritte ab der
 // gespeicherten Version nacheinander durch (Kette), egal wie alt die Daten sind.
 // Ein Schritt, der einen Bereich nicht anfasst, wird einfach weggelassen.
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 const MIGRATIONEN = {
     // 1 -> 2: Alle Felder garantiert vorhanden. Vorher konnten Einträge je nach
@@ -120,6 +123,17 @@ const MIGRATIONEN = {
             geaendert: l.geaendert || l.erstellt || new Date().toISOString(),
         })),
     },
+    // 2 -> 3: Listenpunkte haben eine optionale Kategorie aus dem Kategorienpool.
+    // Produkte der Einkaufsliste dürfen ab jetzt auch eigene Kategorien tragen;
+    // ihr Aufbau ändert sich nicht, eine alte App würde sie aber auf
+    // "Sonstiges" zurücksetzen – daher die neue Versionsnummer.
+    3: {
+        listen: (listen) => listen.map((l) => Object.assign({}, l, {
+            punkte: (Array.isArray(l.punkte) ? l.punkte : []).map((p) => Object.assign({}, p, {
+                kategorie: typeof p.kategorie === 'string' && p.kategorie ? p.kategorie : null,
+            })),
+        })),
+    },
 };
 
 const WOCHENTAGE = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
@@ -134,6 +148,7 @@ class DatenSpeicher {
             wochenplan: this.ladeWochenplan(),
             einkaufsliste: this.ladeEinkaufsliste(),
             listen: this.ladeListen(),
+            kategorien: this.ladeKategorien(),
         };
     }
 
@@ -307,6 +322,7 @@ class DatenSpeicher {
         if (bereich === 'wochenplan') return this.ladeWochenplan();
         if (bereich === 'einkaufsliste') return this.ladeEinkaufsliste();
         if (bereich === 'listen') return this.ladeListen();
+        if (bereich === 'kategorien') return this.ladeKategorien();
         return null;
     }
 
@@ -357,6 +373,43 @@ class DatenSpeicher {
         return this.speichere('listen', listen);
     }
 
+    static ladeKategorien() {
+        const wert = this.lade('kategorien', []);
+        return Array.isArray(wert) ? wert : [];
+    }
+
+    static speichereKategorien(kategorien) {
+        return this.speichere('kategorien', kategorien);
+    }
+
+    // === Kategorienpool ===
+
+    // Eigene Kategorie mit ID, damit der Erstabgleich sie wie jeden anderen
+    // Eintrag zusammenführen kann.
+    static erstelleKategorie(name) {
+        return {
+            id: this.generiereId(),
+            name: String(name || '').trim().replace(/\s+/g, ' '),
+            erstellt: new Date().toISOString(),
+        };
+    }
+
+    // Alle wählbaren Kategorienamen: eingebaute, dann eigene in Anlegereihenfolge,
+    // die Standardkategorie immer zuletzt. Gleiche Namen (ohne Groß-/Kleinschreibung)
+    // erscheinen nur einmal – etwa wenn zwei Geräte offline dieselbe anlegen.
+    static kategorienPool(eigene) {
+        const namen = KATEGORIEN.filter(k => k !== STANDARD_KATEGORIE);
+        const bekannt = new Set(KATEGORIEN.map(k => k.toLowerCase()));
+        (Array.isArray(eigene) ? eigene : []).forEach((k) => {
+            const name = k && typeof k.name === 'string' ? k.name.trim() : '';
+            if (!name || bekannt.has(name.toLowerCase())) return;
+            bekannt.add(name.toLowerCase());
+            namen.push(name);
+        });
+        namen.push(STANDARD_KATEGORIE);
+        return namen;
+    }
+
     // === Listen-Modul ===
 
     static erstelleListe(angaben) {
@@ -375,13 +428,14 @@ class DatenSpeicher {
         };
     }
 
-    // Feldgleich zum Produkt der Einkaufsliste, nur ohne Kategorie und mit Fälligkeit.
-    static erstellePunkt(name, faellig) {
+    // Feldgleich zum Produkt der Einkaufsliste, mit Fälligkeit; die Kategorie ist optional.
+    static erstellePunkt(name, faellig, kategorie) {
         return {
             id: this.generiereId(),
             name: String(name || '').trim(),
             erledigt: false,
             faellig: faellig || null,
+            kategorie: kategorie || null,
             erstellt: new Date().toISOString(),
         };
     }
@@ -394,7 +448,7 @@ class DatenSpeicher {
             art: liste.art,
             von: liste.von,
             bis: liste.bis,
-            punkte: (liste.punkte || []).map((p) => this.erstellePunkt(p.name, p.faellig)),
+            punkte: (liste.punkte || []).map((p) => this.erstellePunkt(p.name, p.faellig, p.kategorie)),
         });
         return kopie;
     }
